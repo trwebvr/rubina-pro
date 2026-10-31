@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#070b14">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="description" content="Download RubinaPro Official Trading App APK. Play 20s WinGo, Refer & Earn ₹30 Instant Bonus, 100% Fast UPI Withdrawal.">
+    <meta name="keywords" content="RubinaPro, RubinaPro App Download, RubinaPro APK, Color Trading App, All Yono App Bonus">
+    <title>RubinaPro - Official Trading App</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="apple-touch-icon" href="logo.png">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Firebase SDK for Real SIM OTP & Live Multi-Phone Sync -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+</head>
+<body>
+
+    <!-- REALISTIC ANDROID PHONE SMS NOTIFICATION BAR -->
+    <div id="androidSmsBanner" class="hidden" style="position:fixed; top:12px; left:12px; right:12px; max-width:410px; margin:0 auto; z-index:10000; background:#1e293b; border:1px solid #38bdf8; border-radius:16px; padding:12px 14px; box-shadow:0 15px 40px rgba(0,0,0,0.85); display:flex; align-items:flex-start; gap:12px;">
+        <div style="width:38px; height:38px; border-radius:50%; background:#0284c7; color:#fff; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;">💬</div>
+        <div style="flex-grow:1; text-align:left;">
+            <div style="display:flex; justify-content:space-between; font-size:11px; color:#94a3b8; font-weight:700;">
+                <span>MESSAGES • VM-RUBINA</span>
+                <span>now</span>
+            </div>
+            <div style="font-size:13px; color:#fff; margin-top:3px; line-height:1.4;">
+                <strong id="smsOtpCodeText" class="mono" style="color:#fde047; font-size:16px;">------</strong> is your RubinaPro verification OTP for mobile <span id="smsTargetMob"></span>. Do not share with anyone.
+            </div>
+        </div>
+        <button onclick="closeAndroidSms()" style="background:none; border:none; color:#94a3b8; font-size:16px; cursor:pointer;">✕</button>
+    </div>
+
+    <!-- 1. SEPARATE LOGIN & REGISTER SCREEN -->
+    <div id="authScreen" class="auth-screen">
+        <div class="auth-card">
+            <img src="logo.png" alt="RubinaPro" style="width:66px; height:66px; border-radius:16px; margin:0 auto 10px; display:block; object-fit:cover; box-shadow:0 8px 22px rgba(0,0,0,0.6);">
+            <h2 id="authHeaderTitle" class="auth-title">RubinaPro Login</h2>
+            <p id="authHeaderSub" class="auth-sub">Login with your registered mobile & password</p>
+
+            <!-- Login / Register Toggle Tabs -->
+            <div class="auth-tabs">
+                <button id="tabLoginBtn" type="button" class="auth-tab active" onclick="switchAuthMode('login')">🔑 Login</button>
+                <button id="tabRegBtn" type="button" class="auth-tab" onclick="switchAuthMode('register')">📝 Register New</button>
+            </div>
+
+            <!-- ================= FORM A: LOGIN FORM ================= -->
+            <div id="loginFormSection">
+                <div class="input-group">
+                    <label>Registered Mobile Number</label>
+                    <input id="loginMobile" type="tel" maxlength="10" class="input-field mono" placeholder="Enter 10-digit mobile number">
+                </div>
+
+                <div class="input-group">
+                    <label>Login Password</label>
+                    <input id="loginPass" type="password" class="input-field" placeholder="Enter your password">
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; font-size:11px;">
+                    <label style="color:#94a3b8; display:flex; align-items:center; gap:5px; cursor:pointer;">
+                        <input type="checkbox" checked> Remember Me
+                    </label>
+                    <span onclick="switchAuthMode('register')" style="color:#818cf8; font-weight:700; cursor:pointer;">Create New Account?</span>
+                </div>
+
+                <button type="button" class="btn-primary" onclick="handleStrictLogin()">SECURE LOGIN ➔</button>
+                <div style="text-align:center; margin-top:10px;">
+                    <span onclick="openSupportModal()" style="font-size:11px; color:#38bdf8; cursor:pointer; font-weight:700;">🎧 Need Help? Contact 24x7 Customer Support</span>
+                </div>
+                <p class="auth-hint">256-Bit Encrypted Official Trading Server</p>
+            </div>
+
+            <!-- ================= FORM B: REGISTER FORM ================= -->
+            <div id="registerFormSection" class="hidden">
+                <div class="input-group">
+                    <label>Full Name</label>
+                    <input id="regName" type="text" class="input-field" placeholder="Enter your full name">
+                </div>
+
+                <div class="input-group">
+                    <label>Mobile Number (+91 Active SIM)</label>
+                    <input id="regMobile" type="tel" maxlength="10" class="input-field mono" placeholder="Enter 10-digit mobile number">
+                </div>
+
+                <div id="recaptcha-container"></div>
+
+                <div class="input-group">
+                    <label>SIM SMS OTP Verification</label>
+                    <div class="otp-row">
+                        <input id="regOtp" type="tel" maxlength="6" class="input-field mono" placeholder="Enter 6-Digit SMS OTP">
+                        <button id="sendOtpBtn" type="button" class="btn-otp" onclick="sendRealSimOtp()">Send OTP</button>
+                    </div>
+                    <small id="otpDispatchNote" style="font-size:10px; color:#34d399; display:none; margin-top:4px;">
+                        ✓ SMS OTP sent to your mobile number.
+                    </small>
+                </div>
+
+                <div class="input-group">
+                    <label>Create Password</label>
+                    <input id="regPass" type="password" class="input-field" placeholder="Create password (min 4 chars)">
+                </div>
+
+                <div class="input-group">
+                    <label>Confirm Password</label>
+                    <input id="regConfirmPass" type="password" class="input-field" placeholder="Re-enter password">
+                </div>
+
+                <div class="input-group">
+                    <label>Invite / Referral Mobile Code (Optional)</label>
+                    <input id="regInvite" type="text" class="input-field mono" value="RUBINAVIP">
+                </div>
+
+                <button type="button" class="btn-primary" style="background:linear-gradient(90deg, #10b981, #059669); color:#000;" onclick="handleStrictRegister()">
+                    ✅ VERIFY SMS OTP & REGISTER
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. TOP HEADER (EXACT ORIGINAL COMPACT "📲 App" BUTTON SIZE AS IN SCREENSHOT 1) -->
+    <header class="app-header">
+        <div class="header-inner">
+            <div class="brand-box" onclick="openProfileModal()" style="cursor:pointer;" title="Tap to open Profile & Settings">
+                <img src="logo.png" alt="RP" style="width:38px; height:38px; border-radius:10px; object-fit:cover; display:block; flex-shrink:0;">
+                <div>
+                    <div class="brand-title">
+                        RubinaPro <span class="vip-badge">PRO</span>
+                    </div>
+                    <div id="loggedUserText" class="user-id-txt">👤 ID: #935143 ▾</div>
+                </div>
+            </div>
+
+            <div class="header-right">
+                <button id="installAppBtn" class="btn-install" onclick="triggerAppInstall()">📲 App</button>
+                <div class="wallet-top">
+                    <div>
+                        <span class="bal-lbl">Balance</span>
+                        <span class="bal-txt mono">₹<span id="walletBalance">0.00</span></span>
+                    </div>
+                    <button class="btn-dep-top" onclick="openDepositModal()">+ Deposit</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 3. REFER & EARN ₹30 BONUS BANNER -->
+    <div class="ad-banner-wrap">
+        <div class="ad-banner" style="border:1px solid #10b981; background:linear-gradient(90deg, rgba(16,185,129,0.18), rgba(6,95,70,0.35));">
+            <div>
+                <span class="ad-tag" style="background:#fde047; color:#000; font-weight:900;">REFER ₹30</span>
+                <span id="liveAdText" class="ad-text">🎁 Refer & Earn ₹30! Invite friends & get ₹30 Instant Bonus on every signup!</span>
+            </div>
+            <button class="btn-share-viral" onclick="openReferModal()" style="background:linear-gradient(90deg,#10b981,#059669); color:#000; font-weight:900; border:none;">
+                🎁 Refer ₹30
+            </button>
+        </div>
+    </div>
+
+    <!-- REFER & EARN ₹30 POPUP MODAL -->
+    <div id="referModal" class="modal-backdrop hidden">
+        <div class="modal-box">
+            <div class="modal-hdr">
+                <h3 class="green-txt">🎁 Refer & Earn ₹30 Bonus</h3>
+                <button class="close-btn" onclick="closeReferModal()">✕</button>
+            </div>
+            <p class="modal-note">Apna Referral Link doston ko WhatsApp/Telegram par bhejein. Jaise hi aapka dost is link se Register karega, aapko turant <b>₹30 Instant Bonus</b> milega!</p>
+
+            <div class="admin-sec" style="text-align:center;">
+                <div style="font-size:11px; color:#94a3b8;">YOUR OFFICIAL REFERRAL CODE</div>
+                <div id="myReferCodeText" class="mono" style="font-size:20px; font-weight:900; color:#fde047; margin:4px 0;">9351433914</div>
+                <div style="font-size:11px; color:#34d399;">Total Refer Bonus Earned: <b>₹<span id="myTotalReferEarned">0</span></b></div>
+            </div>
+
+            <div class="input-group">
+                <label>Your Personal Invite Link</label>
+                <input id="myReferLinkInput" type="text" readonly class="input-field mono" style="font-size:11px; color:#38bdf8;">
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;">
+                <button type="button" onclick="copyMyReferLink()" style="background:#1e293b; color:#fff; border:1px solid #38bdf8; padding:12px; border-radius:10px; font-weight:800; font-size:12px; cursor:pointer;">
+                    📋 Copy Link
+                </button>
+                <button type="button" onclick="shareReferOnWhatsApp()" style="background:linear-gradient(90deg,#10b981,#059669); color:#000; border:none; padding:12px; border-radius:10px; font-weight:900; font-size:12px; cursor:pointer;">
+                    💬 WhatsApp Share
+                </button>
+            </div>
+
+            <button class="btn-primary" onclick="closeReferModal()">CLOSE</button>
+        </div>
+    </div>
+
+    <!-- 4. MAIN DASHBOARD -->
+    <main class="main-container">
+
+        <!-- LEFT COLUMN -->
+        <div class="col-stack">
+
+            <!-- Period & 20s Fast Timer -->
+            <div class="card">
+                <div class="timer-row">
+                    <div>
+                        <div class="period-title">
+                            <span class="live-dot"></span>
+                            <span>WinGo 20s Official Server</span>
+                        </div>
+                        <div id="currentPeriodId" class="period-id mono">#20261024051</div>
+                        <div id="recentMiniDots" class="mini-dots-row"></div>
+                    </div>
+
+                    <div class="timer-right">
+                        <span id="timerStatusLabel" class="timer-lbl">Time Remaining</span>
+                        <div class="digits-row mono">
+                            <span class="digit-card">0</span>
+                            <span class="digit-card">0</span>
+                            <span class="colon-txt">:</span>
+                            <span id="secTens" class="digit-card">2</span>
+                            <span id="secOnes" class="digit-card">0</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="progress-track">
+                    <div id="timerProgressBar" class="progress-fill"></div>
+                </div>
+            </div>
+
+            <!-- Trading Arena -->
+            <div class="card">
+                <div id="betLockOverlay" class="lock-overlay hidden">
+                    <div class="lock-icon">🔒</div>
+                    <h3 class="lock-heading">ROUND LOCKED</h3>
+                    <div id="lockCountdownBig" class="lock-big mono">05</div>
+                </div>
+
+                <div class="sec-header">
+                    <span>⚡ Select Trade Option</span>
+                    <button id="soundToggleBtn" class="sound-btn" onclick="toggleSound()">🔊 HD Sound</button>
+                </div>
+
+                <!-- Color Buttons -->
+                <div class="color-grid">
+                    <button id="btn-COLOR-GREEN" class="color-btn bg-green-btn bet-target-btn" onclick="selectTarget('COLOR', 'GREEN', 'Green', 2)">
+                        <span>GREEN</span>
+                        <span class="sub-lbl mono">2.0x</span>
+                    </button>
+                    <button id="btn-COLOR-VIOLET" class="color-btn bg-violet-btn bet-target-btn" onclick="selectTarget('COLOR', 'VIOLET', 'Violet', 4.5)">
+                        <span>VIOLET</span>
+                        <span class="sub-lbl mono">4.5x</span>
+                    </button>
+                    <button id="btn-COLOR-RED" class="color-btn bg-red-btn bet-target-btn" onclick="selectTarget('COLOR', 'RED', 'Red', 2)">
+                        <span>RED</span>
+                        <span class="sub-lbl mono">2.0x</span>
+                    </button>
+                </div>
+
+                <!-- Numbers 0-9 -->
+                <div class="num-grid">
+                    <button id="btn-NUMBER-0" class="num-btn num-0-bg bet-target-btn mono" onclick="selectTarget('NUMBER', '0', 'Number 0', 9)">0<small>R+V</small></button>
+                    <button id="btn-NUMBER-1" class="num-btn num-green-bg bet-target-btn mono" onclick="selectTarget('NUMBER', '1', 'Number 1', 9)">1<small>Green</small></button>
+                    <button id="btn-NUMBER-2" class="num-btn num-red-bg bet-target-btn mono" onclick="selectTarget('NUMBER', '2', 'Number 2', 9)">2<small>Red</small></button>
+                    <button id="btn-NUMBER-3" class="num-btn num-green-bg bet-target-btn mono" onclick="selectTarget('NUMBER', '3', 'Number 3', 9)">3<small>Green</small></button>
+                    <button id="btn-NUMBER-4" class="num-btn num-red-bg bet-target-btn mono" onclick="selectTarget('NUMBER', '4', 'Number 4', 9)">4<small>Red</small></button>
+                    <button id="btn-NUMBER-5" class="num-btn num-5-bg bet-target-btn mono" onclick="selectTarget('NUMBER', '5', 'Number 5', 9)">5<small>G+V</small></button>
+                    <button id="btn-NUMBER-6" class="num-btn num-red-bg bet-target-btn mono" onclick="selectTarget('NUMBER', '6', 'Number 6', 9)">6<small>Red</small></button>
+                    <button id="btn-NUMBER-7" class="num-btn num-green-bg bet-target-btn mono" onclick="selectTarget('NUMBER', '7', 'Number 7', 9)">7<small>Green</small></button>
+                    <button id="btn-NUMBER-8" class="num-btn num-red-bg bet-target-btn mono" onclick="selectTarget('NUMBER', '8', 'Number 8', 9)">8<small>Red</small></button>
+                    <button id="btn-NUMBER-9" class="num-btn num-green-bg bet-target-btn mono" onclick="selectTarget('NUMBER', '9', 'Number 9', 9)">9<small>Green</small></button>
+                </div>
+
+                <!-- Contract Money & Multiplier -->
+                <div class="bet-config-box">
+                    <div class="config-row">
+                        <span class="cfg-lbl">CONTRACT AMOUNT</span>
+                        <div class="chip-group">
+                            <button class="chip-item selected-chip mono" data-val="10" onclick="setBaseAmount(10)">₹10</button>
+                            <button class="chip-item mono" data-val="100" onclick="setBaseAmount(100)">₹100</button>
+                            <button class="chip-item mono" data-val="500" onclick="setBaseAmount(500)">₹500</button>
+                            <button class="chip-item mono" data-val="1000" onclick="setBaseAmount(1000)">₹1000</button>
+                        </div>
+                    </div>
+
+                    <div class="config-row">
+                        <span class="cfg-lbl">MULTIPLIER</span>
+                        <div class="chip-group">
+                            <button class="chip-item mult-item selected-chip mono" data-mult="1" onclick="setMultiplier(1)">1x</button>
+                            <button class="chip-item mult-item mono" data-mult="2" onclick="setMultiplier(2)">2x</button>
+                            <button class="chip-item mult-item mono" data-mult="5" onclick="setMultiplier(5)">5x</button>
+                            <button class="chip-item mult-item mono" data-mult="10" onclick="setMultiplier(10)">10x</button>
+                        </div>
+                    </div>
+
+                    <div class="summary-line">
+                        <span>Selected: <strong id="selectedTargetBadge" class="green-txt">Green (2x)</strong></span>
+                        <span>Return: <strong id="potentialWinDisplay" class="mono amber-txt">₹20</strong></span>
+                    </div>
+
+                    <button class="btn-place-bet" onclick="confirmPlaceBet()">
+                        CONFIRM TRADE • <span id="totalBetBtnText" class="mono">₹10</span>
+                    </button>
+                </div>
+
+                <div id="currentRoundBetsContainer" class="active-trades-box hidden">
+                    <div class="active-hdr">
+                        <span>Active Trades (<span id="activeBetsCount">0</span>)</span>
+                        <span id="activeTotalStaked" class="mono indigo-txt">Total: ₹0</span>
+                    </div>
+                    <div id="activeBetsList" class="active-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN -->
+        <div class="col-stack">
+
+            <!-- Market Signal Card -->
+            <div class="card ai-border">
+                <div class="ai-hdr">
+                    <div class="ai-title">📈 RUBINAPRO MARKET SIGNAL</div>
+                    <span class="live-sync-badge">LIVE SYNC</span>
+                </div>
+
+                <div class="ai-grid">
+                    <div class="ai-stat-box">
+                        <span class="stat-lbl">Market Signal Color</span>
+                        <div class="stat-val">
+                            <span id="aiPredColor" class="green-txt">GREEN</span>
+                            <span id="aiConfidenceBadge" class="mono">81%</span>
+                        </div>
+                    </div>
+                    <div class="ai-stat-box">
+                        <span class="stat-lbl">Hot Number / Size</span>
+                        <div class="stat-val">
+                            <span id="aiHotNumber" class="mono amber-txt">#7</span>
+                            <span id="aiPredSize" class="indigo-txt">BIG</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ai-signal-bar">
+                    <span id="aiPatternDesc" class="mono">Trend: AABB Active</span>
+                    <button class="btn-auto-ai" onclick="applyAiSignal()">Auto Select</button>
+                </div>
+            </div>
+
+            <!-- History & Trades Card -->
+            <div class="card flex-grow-card">
+                <div class="tab-bar">
+                    <button id="tabBtn-history" class="tab-btn active-tab" onclick="switchTab('history')">📋 History</button>
+                    <button id="tabBtn-mybets" class="tab-btn" onclick="switchTab('mybets')">🎟️ My Trades (<span id="myBetsTabCount">0</span>)</button>
+                    <button id="tabBtn-analytics" class="tab-btn" onclick="switchTab('analytics')">📊 Chart</button>
+                </div>
+
+                <div id="tabContent-history" class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Period</th>
+                                <th class="txt-center">Number</th>
+                                <th class="txt-center">Size</th>
+                                <th class="txt-right">Result</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody" class="mono"></tbody>
+                    </table>
+                </div>
+
+                <div id="tabContent-mybets" class="table-scroll hidden">
+                    <div id="myBetsEmptyState" class="empty-state">No trades placed in this session.</div>
+                    <table id="myBetsTable" class="hidden">
+                        <thead>
+                            <tr>
+                                <th>Period</th>
+                                <th>Option</th>
+                                <th>Amount</th>
+                                <th class="txt-right">P/L</th>
+                            </tr>
+                        </thead>
+                        <tbody id="myBetsTableBody" class="mono"></tbody>
+                    </table>
+                </div>
+
+                <div id="tabContent-analytics" class="table-scroll hidden">
+                    <div id="colorFreqBars"></div>
+                    <div id="numberFreqGrid" class="num-freq-grid"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- RIGHT-SIDE BOTTOM CUSTOMER SUPPORT BUTTON (AUTO-HIDES WHEN MODALS OPEN) -->
+    <button id="homeSupportFloatBtn" type="button" onclick="openSupportModal()"
+        style="position:fixed; bottom:74px; right:14px; z-index:900; background:linear-gradient(135deg,#0284c7,#10b981); color:#fff; border:1px solid #38bdf8; border-radius:50px; padding:9px 14px; font-weight:800; font-size:12px; box-shadow:0 8px 25px rgba(0,0,0,0.7); cursor:pointer; display:flex; align-items:center; gap:6px;">
+        <span>🎧</span><span>Support</span>
+    </button>
+
+    <!-- 24x7 CUSTOMER SUPPORT MODAL -->
+    <div id="supportModal" class="modal-backdrop hidden">
+        <div class="modal-box">
+            <div class="modal-hdr">
+                <h3>🎧 24x7 Official Customer Support</h3>
+                <button class="close-btn" onclick="closeSupportModal()">✕</button>
+            </div>
+            <p class="modal-note">Deposit, Withdrawal ya Account se judi kisi bhi sahayata ke liye niche click karein:</p>
+
+            <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:14px;">
+                <a id="whatsappSupportLink" href="https://wa.me/919351433914?text=Hello%20RubinaPro%20Support%2C%20I%20need%20help" target="_blank"
+                    style="background:linear-gradient(90deg,#10b981,#059669); color:#000; text-decoration:none; padding:13px; border-radius:12px; font-weight:900; font-size:13px; display:flex; align-items:center; justify-content:center; gap:8px;">
+                    <span>💬</span> Chat on WhatsApp Support
+                </a>
+
+                <a id="telegramSupportLink" href="https://t.me/RubinaProSupport" target="_blank"
+                    style="background:linear-gradient(90deg,#0284c7,#0369a1); color:#fff; text-decoration:none; padding:13px; border-radius:12px; font-weight:900; font-size:13px; display:flex; align-items:center; justify-content:center; gap:8px;">
+                    <span>✈️</span> Join Official Telegram Support
+                </a>
+            </div>
+
+            <div class="admin-sec" style="font-size:11px; color:#94a3b8; line-height:1.5;">
+                ● Instant UTR Deposit Verification<br>
+                ● Fast UPI / Bank Withdrawal Help<br>
+                ● Password & Account Recovery Support
+            </div>
+            <button class="btn-primary" onclick="closeSupportModal()">CLOSE</button>
+        </div>
+    </div>
+
+    <!-- WALLET DEPOSIT & WITHDRAWAL HISTORY MODAL (OPENS ON BOTTOM "HISTORY" BUTTON) -->
+    <div id="walletHistoryModal" class="modal-backdrop hidden">
+        <div class="modal-box" style="max-height:88vh; overflow-y:auto;">
+            <div class="modal-hdr">
+                <h3>📋 Deposit & Withdrawal History</h3>
+                <button class="close-btn" onclick="closeWalletHistoryModal()">✕</button>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px;">
+                <button id="whMainTabDep" type="button" onclick="switchWalletHistoryMainTab('deposit')"
+                    style="background:linear-gradient(90deg,#10b981,#059669); color:#000; border:none; padding:10px; border-radius:10px; font-weight:900; font-size:12px; cursor:pointer;">
+                    💳 Deposit History
+                </button>
+                <button id="whMainTabWit" type="button" onclick="switchWalletHistoryMainTab('withdraw')"
+                    style="background:#1e293b; color:#cbd5e1; border:1px solid #38bdf8; padding:10px; border-radius:10px; font-weight:900; font-size:12px; cursor:pointer;">
+                    🏦 Withdrawal History
+                </button>
+            </div>
+
+            <!-- SECTION 1: DEPOSIT HISTORY -->
+            <div id="whDepositSection" style="display:block;">
+                <div style="display:flex; justify-content:space-between; align-items:center; background:#111827; padding:8px 12px; border-radius:8px; margin-bottom:10px; border:1px solid #1e293b;">
+                    <span style="font-size:11px; color:#94a3b8;">Total Deposited Amount:</span>
+                    <strong class="mono" style="font-size:14px; color:#34d399;">₹<span id="whTotalDepositedSum">0</span></strong>
+                </div>
+                <div id="whDepositListBox" class="admin-utr-list" style="max-height:290px; overflow-y:auto; font-size:11px;">
+                    No deposit records found.
+                </div>
+            </div>
+
+            <!-- SECTION 2: WITHDRAWAL HISTORY (4 STATUS TABS) -->
+            <div id="whWithdrawSection" style="display:none;">
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:5px; margin-bottom:12px; background:#1a103c; padding:6px; border-radius:12px;">
+                    <button id="witSubTab-PENDING" type="button" onclick="filterWithdrawHistoryByStatus('PENDING')"
+                        style="background:linear-gradient(180deg,#7c3aed,#5b21b6); color:#fde047; border:1.5px solid #eab308; border-radius:9px 9px 4px 4px; padding:8px 2px; font-weight:800; font-size:10px; cursor:pointer;">
+                        Pending
+                    </button>
+                    <button id="witSubTab-TRANSFERRING" type="button" onclick="filterWithdrawHistoryByStatus('TRANSFERRING')"
+                        style="background:#4b5563; color:#e2e8f0; border:1.5px solid #ca8a04; border-radius:9px 9px 4px 4px; padding:8px 2px; font-weight:800; font-size:10px; cursor:pointer;">
+                        Transferring
+                    </button>
+                    <button id="witSubTab-SUCCESS" type="button" onclick="filterWithdrawHistoryByStatus('SUCCESS')"
+                        style="background:#4b5563; color:#e2e8f0; border:1.5px solid #ca8a04; border-radius:9px 9px 4px 4px; padding:8px 2px; font-weight:800; font-size:10px; cursor:pointer;">
+                        Success
+                    </button>
+                    <button id="witSubTab-FAILED" type="button" onclick="filterWithdrawHistoryByStatus('FAILED')"
+                        style="background:#4b5563; color:#e2e8f0; border:1.5px solid #ca8a04; border-radius:9px 9px 4px 4px; padding:8px 2px; font-weight:800; font-size:10px; cursor:pointer;">
+                        Failed
+                    </button>
+                </div>
+
+                <div id="whWithdrawListBox" class="admin-utr-list" style="max-height:270px; overflow-y:auto; font-size:11px;">
+                    No withdrawal records in this tab.
+                </div>
+            </div>
+
+            <button class="btn-primary" style="margin-top:12px;" onclick="closeWalletHistoryModal()">CLOSE</button>
+        </div>
+    </div>
+
+    <!-- TOP PROFILE & SETTINGS MODAL -->
+    <div id="profileModal" class="modal-backdrop hidden">
+        <div class="modal-box">
+            <div class="modal-hdr">
+                <h3>👤 My RubinaPro Profile</h3>
+                <button class="close-btn" onclick="closeProfileModal()">✕</button>
+            </div>
+
+            <!-- User Details Card -->
+            <div class="admin-sec" style="display:flex; align-items:center; gap:12px;">
+                <img src="logo.png" alt="RP" onclick="handleSecretAdminTap()" style="width:48px; height:48px; border-radius:12px; object-fit:cover; flex-shrink:0; cursor:pointer;">
+                <div style="flex-grow:1;">
+                    <div id="profUserName" style="font-size:15px; font-weight:800; color:#fff;">VIP Trader</div>
+                    <div id="profUserMobile" class="mono" style="font-size:12px; color:#94a3b8;">+91 9351433914</div>
+                    <div style="font-size:11px; color:#34d399; margin-top:2px;">● Total Deposited: ₹<span id="profTotalDep">0</span></div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:10px; color:#94a3b8;">WALLET</div>
+                    <div class="mono" style="font-size:15px; font-weight:800; color:#fbbf24;">₹<span id="profWalletBal">0.00</span></div>
+                </div>
+            </div>
+
+            <!-- Quick Wallet Actions (Deposit & Withdrawal) -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px;">
+                <button onclick="closeProfileModal(); openDepositModal();" style="background:linear-gradient(90deg,#10b981,#059669); color:#000; border:none; padding:11px; border-radius:10px; font-weight:800; font-size:12px; cursor:pointer;">
+                    💳 Deposit Cash
+                </button>
+                <button onclick="closeProfileModal(); openWithdrawModal();" style="background:#1e293b; color:#fff; border:1px solid #38bdf8; padding:11px; border-radius:10px; font-weight:800; font-size:12px; cursor:pointer;">
+                    🏦 Withdraw Cash
+                </button>
+            </div>
+
+            <!-- Account Settings & Edit Name / Password -->
+            <div class="admin-sec">
+                <label class="amber-txt">⚙️ ACCOUNT SETTINGS</label>
+                <div class="admin-row" style="margin-bottom:8px;">
+                    <input id="profNewNameInput" type="text" class="input-field" placeholder="Update Your Name">
+                    <button class="btn-adm-act" onclick="updateProfileName()">Save Name</button>
+                </div>
+                <div class="admin-row">
+                    <input id="profNewPassInput" type="password" class="input-field" placeholder="Change Login Password">
+                    <button class="btn-adm-act" onclick="updateProfilePassword()">Change Pass</button>
+                </div>
+            </div>
+
+            <!-- App Sound, 24x7 Customer Support & Download Controls -->
+            <div class="admin-sec" style="display:flex; flex-direction:column; gap:8px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:12px; color:#cbd5e1; font-weight:700;">🔊 Game Sound Effects</span>
+                    <button id="profSoundBtn" onclick="toggleSound()" class="chip-item selected-chip" style="padding:5px 12px;">ON</button>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid #1e293b; padding-top:8px;">
+                    <span style="font-size:12px; color:#cbd5e1; font-weight:700;">🎧 24x7 Customer Support</span>
+                    <button onclick="closeProfileModal(); openSupportModal();" class="chip-item" style="padding:5px 12px; border-color:#38bdf8; color:#38bdf8;">Contact</button>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid #1e293b; padding-top:8px;">
+                    <span style="font-size:12px; color:#cbd5e1; font-weight:700;">📲 Download Official APK / App</span>
+                    <button onclick="closeProfileModal(); triggerAppInstall();" class="chip-item" style="padding:5px 12px; background:#10b981; color:#000; font-weight:800;">Download</button>
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px;">
+                <button onclick="closeProfileModal(); logoutAccount();" style="background:#1e293b; color:#818cf8; border:1px solid #4f46e5; padding:11px; border-radius:10px; font-weight:800; font-size:12px; cursor:pointer;">
+                    🔑 Switch Login
+                </button>
+                <button onclick="closeProfileModal(); logoutAccount();" style="background:#dc2626; color:#fff; border:none; padding:11px; border-radius:10px; font-weight:800; font-size:12px; cursor:pointer;">
+                    🚪 Logout Account
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. PREMIUM RECHARGE MODAL -->
+    <div id="depositModal" class="modal-backdrop hidden">
+        <div class="modal-box">
+            <div class="modal-hdr">
+                <h3>💳 Select Recharge Amount</h3>
+                <button class="close-btn" onclick="closeDepositModal()">✕</button>
+            </div>
+            <p class="modal-note">Select a recharge package below for instant extra bonus:</p>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;">
+                <button type="button" id="depCard-100" class="dep-amt-btn mono" onclick="chooseDepositAmount(100, this)"
+                    style="padding:11px 8px; border-radius:12px; text-align:center;">
+                    <div style="font-size:16px; font-weight:900;">₹100</div>
+                    <div style="font-size:11px; margin-top:3px; opacity:0.9;">+2% • Get ₹102</div>
+                </button>
+
+                <button type="button" id="depCard-300" class="dep-amt-btn mono" onclick="chooseDepositAmount(300, this)"
+                    style="padding:11px 8px; border-radius:12px; text-align:center;">
+                    <div style="font-size:16px; font-weight:900;">₹300</div>
+                    <div style="font-size:11px; margin-top:3px; opacity:0.9;">+20% • Get ₹360</div>
+                </button>
+
+                <button type="button" id="depCard-500" class="dep-amt-btn mono" onclick="chooseDepositAmount(500, this)"
+                    style="padding:11px 8px; border-radius:12px; text-align:center;">
+                    <div style="font-size:16px; font-weight:900;">₹500</div>
+                    <div style="font-size:11px; margin-top:3px; opacity:0.9;">+30% • Get ₹650</div>
+                </button>
+
+                <button type="button" id="depCard-1000" class="dep-amt-btn mono selected-dep-btn" onclick="chooseDepositAmount(1000, this)"
+                    style="padding:11px 8px; border-radius:12px; text-align:center; position:relative;">
+                    <span style="position:absolute; top:-8px; right:8px; background:#ef4444; color:#fff; font-size:9px; font-weight:900; padding:1px 7px; border-radius:6px; letter-spacing:0.4px;">🔥 POPULAR</span>
+                    <div style="font-size:16px; font-weight:900;">🔥 ₹1,000</div>
+                    <div style="font-size:11px; margin-top:3px; font-weight:800;">+35% • Get ₹1,350</div>
+                </button>
+
+                <button type="button" id="depCard-5000" class="dep-amt-btn mono" onclick="chooseDepositAmount(5000, this)"
+                    style="padding:11px 8px; border-radius:12px; text-align:center;">
+                    <div style="font-size:16px; font-weight:900;">₹5,000</div>
+                    <div style="font-size:11px; margin-top:3px; opacity:0.9;">+40% • Get ₹7,000</div>
+                </button>
+
+                <button type="button" id="depCard-10000" class="dep-amt-btn mono" onclick="chooseDepositAmount(10000, this)"
+                    style="padding:11px 8px; border-radius:12px; text-align:center; position:relative; border-color:#818cf8;">
+                    <span style="position:absolute; top:-8px; right:8px; background:linear-gradient(90deg,#6366f1,#ec4899); color:#fff; font-size:9px; font-weight:900; padding:1px 7px; border-radius:6px; letter-spacing:0.4px;">👑 MEGA BONUS</span>
+                    <div style="font-size:16px; font-weight:900;">👑 ₹10,000</div>
+                    <div style="font-size:11px; margin-top:3px; font-weight:800;">+70% • Get ₹17,000</div>
+                </button>
+            </div>
+
+            <div class="input-group">
+                <label>Total Credit Amount with Bonus (₹)</label>
+                <input id="customDepInput" type="number" class="input-field mono" placeholder="Enter amount (Min ₹100)" value="1350" oninput="onCustomDepManualInput()">
+            </div>
+
+            <button class="btn-primary" onclick="proceedCustomDeposit()">PROCEED TO PAYMENT PAGE ➔</button>
+        </div>
+    </div>
+
+    <!-- 6. WITHDRAW MODAL -->
+    <div id="withdrawModal" class="modal-backdrop hidden">
+        <div class="modal-box">
+            <div class="modal-hdr">
+                <h3>🏦 Bank / UPI Withdrawal</h3>
+                <button class="close-btn" onclick="closeWithdrawModal()">✕</button>
+            </div>
+            <div class="input-group">
+                <label>Withdrawable Balance: ₹<span id="withdrawAvailBal">0.00</span></label>
+                <input id="withdrawAmtInput" type="number" class="input-field mono" placeholder="Enter Amount (Min ₹110)">
+            </div>
+            <div class="input-group">
+                <label>UPI ID / Bank Account Number</label>
+                <input id="withdrawUpiInput" type="text" class="input-field" placeholder="example@ybl">
+            </div>
+            <button class="btn-primary" onclick="submitWithdrawRequest()">CONFIRM WITHDRAWAL</button>
+        </div>
+    </div>
+
+    <!-- 7. MASTER ADMIN PANEL -->
+    <div id="adminModal" class="modal-backdrop hidden">
+        <div class="modal-box" style="max-height:90vh; overflow-y:auto;">
+            <div class="modal-hdr">
+                <h3 class="amber-txt">⚙️ RubinaPro Master Admin</h3>
+                <button class="close-btn" onclick="closeAdminModal()">✕</button>
+            </div>
+
+            <div id="adminPinLockBox">
+                <div class="input-group">
+                    <label>Enter Admin Password / PIN</label>
+                    <input id="adminPinInput" type="password" class="input-field mono" placeholder="Enter Admin PIN" oninput="checkAutoUnlockAdminPin()">
+                </div>
+                <button class="btn-primary" onclick="unlockAdminPanel()">UNLOCK ADMIN CONTROLS</button>
+
+                <div style="margin-top:14px; padding-top:12px; border-top:1px solid #2d3748; text-align:center;">
+                    <div style="font-size:11px; color:#94a3b8; margin-bottom:8px;" id="fpStatusText">
+                        Owner Biometric Lock (Works Only on Owner's Registered Phone)
+                    </div>
+                    <button id="fpScannerBtn" type="button" onclick="verifyRealSideFingerprint()"
+                        style="width:68px; height:68px; border-radius:50%; background:#090d16; border:2px solid #10b981; color:#34d399; font-size:32px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 0 18px rgba(16,185,129,0.25);">
+                        🫆
+                    </button>
+                </div>
+            </div>
+
+            <div id="adminControlsContent" class="hidden">
+
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px;">
+                    <button id="adminTabABtn" type="button" onclick="switchAdminSectionTab('A')"
+                        style="background:linear-gradient(90deg,#10b981,#059669); color:#000; border:none; padding:10px; border-radius:10px; font-weight:800; font-size:12px; cursor:pointer;">
+                        🅰️ A: Admin Controls
+                    </button>
+                    <button id="adminTabBBtn" type="button" onclick="switchAdminSectionTab('B')"
+                        style="background:#1e293b; color:#fff; border:1px solid #38bdf8; padding:10px; border-radius:10px; font-weight:800; font-size:12px; cursor:pointer;">
+                        🅱️ B: Live Monitor & Approvals
+                    </button>
+                </div>
+
+                <!-- ================= SCREEN A ================= -->
+                <div id="adminSectionA" style="display:block;">
+                    <div class="admin-sec">
+                        <label class="green-txt">🎯 FORCE NEXT PERIOD RESULT (0-9)</label>
+                        <p class="admin-sub">Mode: <strong id="adminForceStatus" class="amber-txt">Auto Random</strong></p>
+                        <div class="admin-num-grid">
+                            <button onclick="setAdminForcedNumber(null)" class="chip-item">Auto</button>
+                            <button onclick="setAdminForcedNumber(0)" class="chip-item mono">0</button>
+                            <button onclick="setAdminForcedNumber(1)" class="chip-item mono">1</button>
+                            <button onclick="setAdminForcedNumber(2)" class="chip-item mono">2</button>
+                            <button onclick="setAdminForcedNumber(3)" class="chip-item mono">3</button>
+                            <button onclick="setAdminForcedNumber(4)" class="chip-item mono">4</button>
+                            <button onclick="setAdminForcedNumber(5)" class="chip-item mono">5</button>
+                            <button onclick="setAdminForcedNumber(6)" class="chip-item mono">6</button>
+                            <button onclick="setAdminForcedNumber(7)" class="chip-item mono">7</button>
+                            <button onclick="setAdminForcedNumber(8)" class="chip-item mono">8</button>
+                            <button onclick="setAdminForcedNumber(9)" class="chip-item mono">9</button>
+                        </div>
+                    </div>
+
+                    <div class="admin-sec">
+                        <label class="amber-txt">🔐 CHANGE ADMIN PASSWORD / PIN</label>
+                        <div class="admin-row">
+                            <input id="newAdminPinInput" type="text" class="input-field mono" placeholder="Enter New Admin PIN">
+                            <button class="btn-adm-act" onclick="changeAdminPin()">Update PIN</button>
+                        </div>
+                        <button type="button" onclick="registerAdminFingerprint()" style="width:100%; margin-top:8px; background:#1e293b; border:1px solid #38bdf8; color:#38bdf8; padding:8px; border-radius:8px; font-size:11px; font-weight:800; cursor:pointer;">
+                            🫆 Register My Owner Fingerprint (Lock to This Phone Only)
+                        </button>
+                    </div>
+
+                    <div class="admin-sec">
+                        <label class="indigo-txt">📥 PENDING UTR REQUESTS (<span id="adminUtrCount">0</span>)</label>
+                        <div id="adminUtrList" class="admin-utr-list">No pending UTR submissions.</div>
+                    </div>
+
+                    <div class="admin-sec">
+                        <label class="amber-txt">💰 WALLET & NEW USER STARTING BALANCE</label>
+                        <div class="admin-row">
+                            <input id="adminBalInput" type="number" class="input-field mono" placeholder="Current Balance ₹">
+                            <button class="btn-adm-act" onclick="adminUpdateBalance()">Set ₹</button>
+                        </div>
+                        <div class="admin-row" style="margin-top:8px;">
+                            <input id="adminNewUserBalInput" type="number" class="input-field mono" placeholder="New User Default ₹ (e.g. 0)">
+                            <button class="btn-adm-act" onclick="adminUpdateNewUserDefaultBal()">Save Default</button>
+                        </div>
+                        <div class="admin-row" style="margin-top:8px;">
+                            <input id="adminAdInput" type="text" class="input-field" placeholder="New Promo Banner Text">
+                            <button class="btn-adm-act" onclick="adminUpdateAd()">Save Banner</button>
+                        </div>
+                    </div>
+
+                    <div class="admin-sec">
+                        <label class="amber-txt">🎧 24x7 CUSTOMER SUPPORT LINKS (WHATSAPP & TELEGRAM)</label>
+                        <div class="admin-row">
+                            <input id="adminWhatsappInput" type="text" class="input-field mono" placeholder="WhatsApp Number (e.g. 919351433914)">
+                            <button class="btn-adm-act" onclick="saveSupportLinks()">Save WA</button>
+                        </div>
+                        <div class="admin-row" style="margin-top:8px;">
+                            <input id="adminTelegramInput" type="text" class="input-field mono" placeholder="Telegram Username (e.g. RubinaProSupport)">
+                            <button class="btn-adm-act" onclick="saveSupportLinks()">Save TG</button>
+                        </div>
+                    </div>
+
+                    <div class="admin-sec">
+                        <label class="green-txt">🔥 GOOGLE FIREBASE SIM OTP CONFIG</label>
+                        <div class="admin-row">
+                            <input id="adminFirebaseJson" type="text" class="input-field mono" value='{"apiKey":"AIzaSyAKqTV8_EGXMDFpQN7y0Jy74qoLX5xd8SE","authDomain":"rubinapro-c03b8.firebaseapp.com","databaseURL":"https://rubinapro-c03b8-default-rtdb.firebaseio.com","projectId":"rubinapro-c03b8","storageBucket":"rubinapro-c03b8.firebasestorage.app","messagingSenderId":"790156196888","appId":"1:790156196888:web:21437e03807db0eee8d76d","measurementId":"G-LVEK6ECWKM"}'>
+                            <button class="btn-adm-act" onclick="saveFirebaseConfig()">Save</button>
+                        </div>
+
+                        <div style="border-top:1px solid #2d3748; margin-top:12px; padding-top:10px;">
+                            <label class="amber-txt">📲 FAST2SMS KEY & LIVE OTP MONITOR</label>
+                            <div class="admin-row">
+                                <input id="adminSmsApiKey" type="password" class="input-field mono" placeholder="Paste Fast2SMS API Key">
+                                <button class="btn-adm-act" onclick="saveSmsApiKey()">Save Key</button>
+                            </div>
+                            <div style="margin-top:8px; font-size:11px; color:#cbd5e1;">
+                                Latest Dispatched OTPs:
+                                <div id="adminOtpLogBox" class="mono" style="background:#111827; padding:8px; border-radius:6px; margin-top:4px; color:#34d399; font-size:11px; line-height:1.4;">
+                                    No OTP requested yet.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="admin-sec">
+                        <label class="green-txt">👥 REGISTERED USERS, PASSWORDS & DEPOSITS (<span id="adminTotalUsersCount">0</span>)</label>
+                        <div id="adminUsersListBox" class="admin-utr-list" style="max-height:170px; overflow-y:auto; font-size:11px;">
+                            Loading registered users...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================= SCREEN B: LIVE / OFFLINE PLAYERS, BET MONITOR & USER INSPECTOR ================= -->
+                <div id="adminSectionB" style="display:none;">
+
+                    <div class="admin-sec">
+                        <label class="green-txt">📡 LIVE ONLINE vs OFFLINE PLAYERS (TAP ANY USER TO INSPECT ID)</label>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:6px;">
+                            <div style="background:#111827; border:1px solid #10b981; border-radius:8px; padding:8px;">
+                                <div style="font-size:10px; font-weight:900; color:#34d399; margin-bottom:6px;">
+                                    🟢 LIVE PLAYING (<span id="adminLiveOnlineCount">0</span>)
+                                </div>
+                                <div id="adminLiveOnlineList" style="max-height:140px; overflow-y:auto; font-size:10px;">
+                                    No live players.
+                                </div>
+                            </div>
+
+                            <div style="background:#111827; border:1px solid #334155; border-radius:8px; padding:8px;">
+                                <div style="font-size:10px; font-weight:900; color:#94a3b8; margin-bottom:6px;">
+                                    ⚪ OFFLINE (<span id="adminOfflineCount">0</span>)
+                                </div>
+                                <div id="adminOfflineList" style="max-height:140px; overflow-y:auto; font-size:10px;">
+                                    No offline players.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="adminUserInspectorBox" class="admin-sec hidden" style="border:1px solid #38bdf8; background:#090d16;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1e293b; padding-bottom:6px; margin-bottom:8px;">
+                            <label class="indigo-txt" style="margin:0; color:#38bdf8;">🔍 PLAYER FULL ID & LIVE GAME VIEW</label>
+                            <button type="button" onclick="closeUserInspector()" style="background:#1e293b; color:#cbd5e1; border:none; padding:2px 8px; border-radius:6px; font-size:10px; cursor:pointer;">✕ Close</button>
+                        </div>
+                        <div id="adminInspectorContent" style="font-size:11px; line-height:1.5;"></div>
+                    </div>
+
+                    <div class="admin-sec">
+                        <label class="amber-txt">🎟️ CURRENT ROUND LIVE BETS (<span id="adminLiveBetsCount">0</span>)</label>
+                        <div id="adminLiveBetsList" class="admin-utr-list" style="max-height:130px; overflow-y:auto; font-size:11px;">
+                            No active bets placed in this round yet.
+                        </div>
+                    </div>
+
+                    <div class="admin-sec">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <label class="green-txt" style="margin:0;">💳 DEPOSIT APPROVAL SYSTEM</label>
+                                <div style="font-size:10px; color:#94a3b8; margin-top:3px;">
+                                    OFF = Auto Deposit • ON = Hold Until You Approve
+                                </div>
+                            </div>
+                            <button id="toggleDepApprovalBtn" type="button" onclick="toggleDepositApprovalMode()"
+                                style="background:#f59e0b; color:#000; border:none; padding:7px 12px; border-radius:8px; font-weight:900; font-size:11px; cursor:pointer;">
+                                ON (HOLD)
+                            </button>
+                        </div>
+                        <div id="adminTabBUtrList" class="admin-utr-list" style="margin-top:10px; border-top:1px solid #1e293b; padding-top:8px;">
+                            No pending UTR submissions.
+                        </div>
+                    </div>
+
+                    <div class="admin-sec">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <label class="amber-txt" style="margin:0;">🏦 WITHDRAWAL APPROVAL SYSTEM</label>
+                                <div style="font-size:10px; color:#94a3b8; margin-top:3px;">
+                                    ON = Hold Until You Approve • OFF = Instant Withdraw
+                                </div>
+                            </div>
+                            <button id="toggleWitApprovalBtn" type="button" onclick="toggleWithdrawApprovalMode()"
+                                style="background:#f59e0b; color:#000; border:none; padding:7px 12px; border-radius:8px; font-weight:900; font-size:11px; cursor:pointer;">
+                                ON (HOLD)
+                            </button>
+                        </div>
+                        <div id="adminWithdrawReqList" class="admin-utr-list" style="margin-top:10px; border-top:1px solid #1e293b; padding-top:8px;">
+                            No pending withdrawal requests.
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- 8. APP INSTALL GUIDE MODAL -->
+    <div id="installGuideModal" class="modal-backdrop hidden">
+        <div class="modal-box">
+            <div class="modal-hdr">
+                <h3>📲 Download RubinaPro App</h3>
+                <button class="close-btn" onclick="closeInstallGuide()">✕</button>
+            </div>
+            <p class="modal-note">RubinaPro_Official.apk download has started! Or install directly via browser:</p>
+            <div class="admin-sec" style="line-height:1.6; font-size:12px;">
+                1. Open your browser's <b>Downloads</b> folder & tap <b>RubinaPro_Official.apk</b> to install.<br>
+                2. Or tap Chrome's <b>Three Dots (⋮) ➔ Add to Home Screen / Install App</b>.<br>
+                3. Open RubinaPro anytime from your phone's home screen!
+            </div>
+            <button class="btn-primary" onclick="closeInstallGuide()">GOT IT</button>
+        </div>
+    </div>
+
+    <!-- 9. BOTTOM NAVIGATION BAR: 5 ITEMS FOR PLAYERS, 6 ITEMS FOR OWNER (9351433914) -->
+    <nav class="bottom-nav">
+        <button class="nav-item active-nav" onclick="window.scrollTo(0,0)">
+            <span>🎮</span><span>Trade</span>
+        </button>
+        <button class="nav-item" onclick="openDepositModal()">
+            <span>💳</span><span>Deposit</span>
+        </button>
+        <button class="nav-item" onclick="openWithdrawModal()">
+            <span>🏦</span><span>Withdraw</span>
+        </button>
+        <button class="nav-item" onclick="openWalletHistoryModal()">
+            <span>📋</span><span>History</span>
+        </button>
+        <button id="bottomAdminNavBtn" class="nav-item" style="display:none;" onclick="openAdminModal()">
+            <span>⚙️</span><span>Admin</span>
+        </button>
+        <button class="nav-item" onclick="logoutAccount()">
+            <span>🚪</span><span>Logout</span>
+        </button>
+    </nav>
+
+    <!-- Round Result Popup Toast -->
+    <div id="roundResultToast" class="toast-popup hidden">
+        <div class="toast-left">
+            <div id="toastNumberBall" class="mini-ball mono toast-ball">7</div>
+            <div>
+                <div id="toastPeriodText" class="mono toast-period">#20261024051</div>
+                <div id="toastOutcomeTitle" class="toast-title">Round Result</div>
+                <div id="toastPnlSubtext" class="mono toast-sub">Declared</div>
+            </div>
+        </div>
+        <button class="close-btn" onclick="hideResultToast()">✕</button>
+    </div>
+
+    <!-- Top Feedback Banner -->
+    <div id="feedbackBanner" class="top-banner hidden" style="z-index:9999;">Notification</div>
+
+    <script src="script.js"></script>
+    <script src="admin.js"></script>
+</body>
+</html>

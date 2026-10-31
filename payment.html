@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#070b14">
+    <title>RubinaPro - Official UPI Payment Gateway</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+</head>
+<body style="background:#070b14; color:#f8fafc; font-family:sans-serif; padding:16px;">
+
+    <div style="max-width:420px; margin:0 auto; background:#0f172a; border:1px solid #1e293b; border-radius:18px; padding:18px; box-shadow:0 15px 40px rgba(0,0,0,0.7);">
+        
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1e293b; padding-bottom:12px; margin-bottom:14px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <img src="logo.png" alt="RP" style="width:38px; height:38px; border-radius:10px; object-fit:cover; display:block;">
+                <div>
+                    <div style="font-size:15px; font-weight:800;">RubinaPro Official Cashier</div>
+                    <div style="font-size:11px; color:#34d399;">● 100% Instant UPI Auto-Verification</div>
+                </div>
+            </div>
+            <button onclick="window.location.href='index.html'" style="background:#1e293b; color:#cbd5e1; border:none; padding:6px 10px; border-radius:8px; font-size:12px; cursor:pointer;">✕ Cancel</button>
+        </div>
+
+        <div style="background:#111827; border:1px solid #2d3748; border-radius:12px; padding:12px; display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <div>
+                <div style="font-size:11px; color:#94a3b8;">PAYABLE AMOUNT</div>
+                <div style="font-size:24px; font-weight:900; color:#fbbf24; font-family:monospace;">₹<span id="payAmtDisplay">1000</span>.00</div>
+            </div>
+            <div style="text-align:right;">
+                <div style="font-size:11px; color:#94a3b8;">SESSION EXPIRES IN</div>
+                <div id="payTimer" style="font-size:18px; font-weight:800; color:#f87171; font-family:monospace;">05:00</div>
+            </div>
+        </div>
+
+        <div style="text-align:center; background:#1e293b; border-radius:14px; padding:16px; margin-bottom:16px;">
+            <div style="font-size:12px; font-weight:700; color:#cbd5e1; margin-bottom:10px;">STEP 1: Scan QR or Tap UPI App to Pay</div>
+
+            <div style="max-width:205px; margin:0 auto 10px; background:#090d16; border:1px solid #10b981; padding:6px 10px; border-radius:10px;">
+                <div style="font-size:10px; font-weight:700; color:#94a3b8;">Get Assured Instant</div>
+                <div style="font-size:14px; font-weight:900; color:#34d399; letter-spacing:0.5px;">⚡ CASHBACK</div>
+                <div style="font-size:10px; font-weight:800; color:#38bdf8; margin-top:1px;">Scan in Paytm App</div>
+            </div>
+
+            <div style="background:#fff; padding:10px; border-radius:12px; display:inline-block; margin-bottom:10px;">
+                <img id="upiQrImg" src="" alt="Scan UPI QR" style="width:175px; height:175px; display:block;">
+            </div>
+
+            <div style="font-size:11px; color:#94a3b8; margin-bottom:6px;">Merchant UPI ID:</div>
+            <div style="display:flex; gap:8px; align-items:center; justify-content:center; background:#090d16; padding:8px 12px; border-radius:10px; border:1px solid #334155;">
+                <span id="merchantUpiText" style="font-family:monospace; font-size:13px; color:#38bdf8; font-weight:700;">paytm.s434h8n@pty</span>
+                <button onclick="copyUpiId()" style="background:#10b981; color:#000; border:none; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer;">Copy UPI</button>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:6px; margin-top:12px;">
+                <button type="button" onclick="openUpiApp('phonepe')" style="background:#5f259f; color:#fff; border:none; padding:8px 4px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">PhonePe</button>
+                <button type="button" onclick="openUpiApp('gpay')" style="background:#1a73e8; color:#fff; border:none; padding:8px 4px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">GPay</button>
+                <button type="button" onclick="openUpiApp('paytm')" style="background:#00baf2; color:#000; border:none; padding:8px 4px; border-radius:8px; font-size:11px; font-weight:800; cursor:pointer;">Paytm</button>
+                <button type="button" onclick="openUpiApp('other')" style="background:#334155; color:#fff; border:none; padding:8px 4px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">Other</button>
+            </div>
+        </div>
+
+        <div style="background:#111827; border:1px solid #10b981; border-radius:14px; padding:14px;">
+            <div style="font-size:12px; font-weight:800; color:#34d399; margin-bottom:6px;">STEP 2: Enter 12-Digit UTR / Reference No.</div>
+            <p style="font-size:11px; color:#94a3b8; margin-top:0; margin-bottom:10px;">Payment karne ke baad apne UPI app se 12-ankon ka UTR number yahan daalkar submit karein:</p>
+            
+            <input id="utrInputBox" type="tel" maxlength="12" placeholder="Enter 12-digit UTR (e.g. 412389012345)" 
+                style="width:100%; box-sizing:border-box; padding:12px; border-radius:10px; border:1px solid #334155; background:#090d16; color:#fff; font-size:14px; font-family:monospace; margin-bottom:12px;">
+
+            <button id="submitUtrBtn" onclick="submitRealUtr()" style="width:100%; background:linear-gradient(90deg,#10b981,#059669); color:#000; border:none; padding:13px; border-radius:10px; font-weight:900; font-size:14px; cursor:pointer;">
+                ✅ SUBMIT UTR FOR INSTANT CREDIT
+            </button>
+        </div>
+
+        <p id="payNotice" style="text-align:center; font-size:12px; color:#fbbf24; margin-top:12px; display:none;"></p>
+    </div>
+
+    <script>
+        const DEFAULT_FIREBASE_CFG = {
+            apiKey: "AIzaSyAKqTV8_EGXMDFpQN7y0Jy74qoLX5xd8SE",
+            authDomain: "rubinapro-c03b8.firebaseapp.com",
+            databaseURL: "https://rubinapro-c03b8-default-rtdb.firebaseio.com",
+            projectId: "rubinapro-c03b8",
+            storageBucket: "rubinapro-c03b8.firebasestorage.app",
+            messagingSenderId: "790156196888",
+            appId: "1:790156196888:web:21437e03807db0eee8d76d",
+            measurementId: "G-LVEK6ECWKM"
+        };
+
+        let dbRef = null;
+        let requireDepositApproval = localStorage.getItem('rp_dep_approval_on') === '1';
+
+        try {
+            const savedCfg = JSON.parse(localStorage.getItem('rp_firebase_config') || 'null') || DEFAULT_FIREBASE_CFG;
+            if (!savedCfg.databaseURL && savedCfg.projectId) {
+                savedCfg.databaseURL = `https://${savedCfg.projectId}-default-rtdb.firebaseio.com`;
+            }
+            if (window.firebase && !firebase.apps.length) {
+                firebase.initializeApp(savedCfg);
+            }
+            dbRef = firebase.database();
+            dbRef.ref('rp_settings/depApprovalOn').on('value', snap => {
+                if (snap.exists()) {
+                    requireDepositApproval = snap.val() === true;
+                    localStorage.setItem('rp_dep_approval_on', requireDepositApproval ? '1' : '0');
+                }
+            });
+        } catch (e) {}
+
+        const params = new URLSearchParams(window.location.search);
+        const amount = parseInt(params.get('amount') || localStorage.getItem('rp_pending_dep_amt') || '1000', 10);
+        const creditTotal = parseInt(params.get('credit') || localStorage.getItem('rp_pending_dep_credit') || amount, 10);
+        const merchantUpi = "paytm.s434h8n@pty";
+
+        document.getElementById('payAmtDisplay').textContent = amount;
+        document.getElementById('merchantUpiText').textContent = merchantUpi;
+
+        const basePayQuery = `pa=${merchantUpi}&pn=Priyanshu%20Meena&am=${amount}.00&cu=INR`;
+        const genericUpiUri = `upi://pay?${basePayQuery}`;
+        document.getElementById('upiQrImg').src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(genericUpiUri)}`;
+
+        function openUpiApp(app) {
+            const isAndroid = /Android/i.test(navigator.userAgent);
+            if (!isAndroid || app === 'other') {
+                window.location.href = genericUpiUri;
+                return;
+            }
+            let pkg = '';
+            if (app === 'phonepe') pkg = 'com.phonepe.app';
+            else if (app === 'gpay') pkg = 'com.google.android.apps.nbu.paisa.user';
+            else if (app === 'paytm') pkg = 'net.one97.paytm';
+
+            if (pkg) {
+                window.location.href = `intent://pay?${basePayQuery}#Intent;scheme=upi;package=${pkg};end`;
+            } else {
+                window.location.href = genericUpiUri;
+            }
+        }
+
+        function copyUpiId() {
+            const upi = document.getElementById('merchantUpiText').textContent;
+            if (navigator.clipboard) navigator.clipboard.writeText(upi);
+            const msg = document.getElementById('payNotice');
+            msg.style.display = 'block';
+            msg.style.color = '#34d399';
+            msg.textContent = '✅ UPI ID Copied! Pay & enter 12-digit UTR below.';
+        }
+
+        async function submitRealUtr() {
+            const utr = document.getElementById('utrInputBox').value.trim();
+            const msg = document.getElementById('payNotice');
+
+            if (!/^\d{12}$/.test(utr) || /^(\d)\1{11}$/.test(utr)) {
+                msg.style.display = 'block';
+                msg.style.color = '#f87171';
+                msg.textContent = '❌ Kripya sahi 12-ankon ka UTR number daalein!';
+                return;
+            }
+
+            const usedUtrs = JSON.parse(localStorage.getItem('rp_used_utrs') || '[]');
+            if (usedUtrs.includes(utr)) {
+                msg.style.display = 'block';
+                msg.style.color = '#f87171';
+                msg.textContent = '❌ Yeh UTR number pehle hi upyog ho chuka hai!';
+                return;
+            }
+
+            const btn = document.getElementById('submitUtrBtn');
+            btn.disabled = true;
+            btn.textContent = 'Verifying UTR...';
+
+            if (dbRef) {
+                try {
+                    const snap = await dbRef.ref(`rp_used_utrs/${utr}`).once('value');
+                    if (snap.exists()) {
+                        btn.disabled = false;
+                        btn.textContent = '✅ SUBMIT UTR FOR INSTANT CREDIT';
+                        msg.style.display = 'block';
+                        msg.style.color = '#f87171';
+                        msg.textContent = '❌ Yeh UTR number pehle hi upyog ho chuka hai!';
+                        return;
+                    }
+                    await dbRef.ref(`rp_used_utrs/${utr}`).set(true);
+                } catch (e) {}
+            }
+
+            usedUtrs.push(utr);
+            localStorage.setItem('rp_used_utrs', JSON.stringify(usedUtrs));
+
+            const userMob = localStorage.getItem('rp_logged_user') || '9351433914';
+            const depRecordId = Date.now();
+            const depRecord = {
+                id: depRecordId,
+                user: userMob,
+                amount: amount,
+                creditWithBonus: creditTotal,
+                utr: utr,
+                status: requireDepositApproval ? 'PENDING' : 'SUCCESS',
+                time: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString()
+            };
+
+            // Save to Deposit History array so user sees every 500, 100, 300 deposit in History
+            const depHist = JSON.parse(localStorage.getItem('rp_deposit_history') || '[]');
+            depHist.unshift(depRecord);
+            localStorage.setItem('rp_deposit_history', JSON.stringify(depHist));
+            if (dbRef) {
+                try { await dbRef.ref('rp_deposit_history/' + depRecordId).set(depRecord); } catch (e) {}
+            }
+
+            if (!requireDepositApproval) {
+                const curBal = parseFloat(localStorage.getItem('rp_balance') || '0');
+                const newBal = curBal + creditTotal;
+                localStorage.setItem('rp_balance', newBal.toFixed(2));
+
+                const users = JSON.parse(localStorage.getItem('rp_users') || '{}');
+                if (!users[userMob]) users[userMob] = { name: 'Trader', pass: '1234', balance: 0, totalDeposit: 0 };
+                users[userMob].balance = newBal;
+                users[userMob].totalDeposit = parseFloat(users[userMob].totalDeposit || 0) + amount;
+                localStorage.setItem('rp_users', JSON.stringify(users));
+
+                if (dbRef) {
+                    try { await dbRef.ref(`rp_users/${userMob}`).update(users[userMob]); } catch (e) {}
+                }
+                window.location.href = `index.html?auto_credited=${creditTotal}`;
+            } else {
+                const list = JSON.parse(localStorage.getItem('rp_utr_requests') || '[]');
+                list.unshift(depRecord);
+                localStorage.setItem('rp_utr_requests', JSON.stringify(list));
+
+                if (dbRef) {
+                    try { await dbRef.ref('rp_utr_requests/' + depRecordId).set(depRecord); } catch (e) {}
+                }
+                window.location.href = 'index.html?utr_submitted=1';
+            }
+        }
+
+        let secLeft = 300;
+        setInterval(() => {
+            if (secLeft > 0) secLeft--;
+            const m = String(Math.floor(secLeft / 60)).padStart(2, '0');
+            const s = String(secLeft % 60).padStart(2, '0');
+            document.getElementById('payTimer').textContent = `${m}:${s}`;
+        }, 1000);
+    </script>
+</body>
+</html>
