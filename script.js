@@ -56,11 +56,12 @@ let gameHistory = [];
 let userBets = [];
 let currentAiSignal = { color: 'GREEN', confidence: 81, hotNumber: 7 };
 
-/* ============================================================
- * HELPER: CHECK IF CURRENT USER IS BLOCKED & SHOW POPUP
- * ============================================================ */
+function getActiveLoggedUser() {
+    return localStorage.getItem('rp_logged_user') || sessionStorage.getItem('rp_session_user') || "";
+}
+
 function isCurrentUserBlockedWithPopup() {
-    const curMob = localStorage.getItem('rp_logged_user') || OWNER_ADMIN_MOBILE;
+    const curMob = getActiveLoggedUser() || OWNER_ADMIN_MOBILE;
     const users = JSON.parse(localStorage.getItem('rp_users') || '{}');
     const u = users[curMob];
     if (u && u.blocked) {
@@ -73,7 +74,7 @@ function isCurrentUserBlockedWithPopup() {
 }
 
 /* ============================================================
- * UNIVERSAL SERVER CLOCK SYNC (SAME PERIOD & SECOND ON ALL PHONES)
+ * UNIVERSAL SERVER CLOCK SYNC
  * ============================================================ */
 function getServerSyncedPeriodAndTime() {
     const nowMs = Date.now();
@@ -118,7 +119,7 @@ function getDeterministicHardOutcomeForPeriod(pIdStr) {
 }
 
 /* ============================================================
- * BONUS CALCULATOR & DEPOSIT (DEPOSIT ALWAYS REMAINS OPEN EVEN IF BLOCKED)
+ * BONUS CALCULATOR & DEPOSIT
  * ============================================================ */
 function calculateDepositBonus(amt) {
     const n = parseInt(amt, 10) || 0;
@@ -144,7 +145,7 @@ function openDepositModal() {
 function closeDepositModal() {
     document.getElementById('depositModal').classList.add('hidden');
     if (typeof setHomeSupportButtonVisible === 'function') {
-        setHomeSupportButtonVisible(!!localStorage.getItem('rp_logged_user'));
+        setHomeSupportButtonVisible(!!getActiveLoggedUser());
     }
 }
 
@@ -194,7 +195,7 @@ window.addEventListener('focus', () => { isAppInBackground = false; });
 
 function shouldPlayTickSound() {
     if (!soundEnabled || isAppInBackground || document.hidden) return false;
-    const modals = ['authScreen', 'depositModal', 'withdrawModal', 'adminModal', 'installGuideModal', 'profileModal', 'supportModal', 'walletHistoryModal'];
+    const modals = ['authScreen', 'depositModal', 'withdrawModal', 'adminModal', 'installGuideModal', 'profileModal', 'supportModal', 'walletHistoryModal', 'referModal'];
     return modals.every(id => {
         const el = document.getElementById(id);
         return !el || el.classList.contains('hidden');
@@ -284,7 +285,7 @@ function toggleSound() {
 }
 
 /* ============================================================
- * 20-SECOND TRADING ENGINE
+ * 20-SECOND TRADING ENGINE (COLOR LABEL: GREEN, RED, R+V, G+V)
  * ============================================================ */
 function saveWalletBalance() {
     localStorage.setItem('rp_balance', walletBalance.toFixed(2));
@@ -297,11 +298,34 @@ function saveWalletBalance() {
 function getOutcomeDetails(num) {
     const n = parseInt(num, 10);
     let colors = [];
-    if (n === 0) colors = ['RED', 'VIOLET'];
-    else if (n === 5) colors = ['GREEN', 'VIOLET'];
-    else if ([1, 3, 7, 9].includes(n)) colors = ['GREEN'];
-    else colors = ['RED'];
-    return { number: n, colors, size: n >= 5 ? 'BIG' : 'SMALL' };
+    let colorLabel = "";
+    if (n === 0) {
+        colors = ['RED', 'VIOLET'];
+        colorLabel = 'R+V';
+    } else if (n === 5) {
+        colors = ['GREEN', 'VIOLET'];
+        colorLabel = 'G+V';
+    } else if ([1, 3, 7, 9].includes(n)) {
+        colors = ['GREEN'];
+        colorLabel = 'GREEN';
+    } else {
+        colors = ['RED'];
+        colorLabel = 'RED';
+    }
+    return { number: n, colors, colorLabel };
+}
+
+function getColorPillStyle(colorLabel) {
+    if (colorLabel === 'R+V') {
+        return 'background:linear-gradient(90deg,#ef4444,#8b5cf6); color:#fff; padding:2px 8px; border-radius:6px; font-size:10px; font-weight:800;';
+    }
+    if (colorLabel === 'G+V') {
+        return 'background:linear-gradient(90deg,#10b981,#8b5cf6); color:#fff; padding:2px 8px; border-radius:6px; font-size:10px; font-weight:800;';
+    }
+    if (colorLabel === 'GREEN') {
+        return 'background:rgba(16,185,129,0.18); color:#34d399; border:1px solid #10b981; padding:2px 8px; border-radius:6px; font-size:10px; font-weight:800;';
+    }
+    return 'background:rgba(239,68,68,0.18); color:#f87171; border:1px solid #ef4444; padding:2px 8px; border-radius:6px; font-size:10px; font-weight:800;';
 }
 
 function getBallStyle(num) {
@@ -324,7 +348,7 @@ function seedInitialHistory() {
         const pastPid = `${syncInfo.datePrefix}${String(s).padStart(4, '0')}`;
         const winNum = getDeterministicHardOutcomeForPeriod(pastPid);
         const d = getOutcomeDetails(winNum);
-        gameHistory.unshift({ periodId: pastPid, number: d.number, colors: d.colors, size: d.size });
+        gameHistory.unshift({ periodId: pastPid, number: d.number, colors: d.colors, colorLabel: d.colorLabel });
     }
     document.getElementById('currentPeriodId').textContent = `#${currentPeriodId}`;
 }
@@ -340,6 +364,7 @@ function runAiPatternAnalysis() {
     const confidence = 74 + (periodCounter % 15);
     const matching = nextColor === 'GREEN' ? [1, 3, 5, 7, 9] : [0, 2, 4, 6, 8];
     const hotNumber = matching[periodCounter % matching.length];
+    const hotDetails = getOutcomeDetails(hotNumber);
 
     currentAiSignal = { color: nextColor, confidence, hotNumber };
     const colEl = document.getElementById('aiPredColor');
@@ -347,7 +372,12 @@ function runAiPatternAnalysis() {
     colEl.style.color = nextColor === 'GREEN' ? '#34d399' : '#f87171';
     document.getElementById('aiConfidenceBadge').textContent = `${confidence}%`;
     document.getElementById('aiHotNumber').textContent = `#${hotNumber}`;
-    document.getElementById('aiPredSize').textContent = hotNumber >= 5 ? 'BIG' : 'SMALL';
+
+    const hotColEl = document.getElementById('aiPredSize');
+    if (hotColEl) {
+        hotColEl.textContent = hotDetails.colorLabel;
+        hotColEl.style.color = hotDetails.colorLabel.includes('G') ? '#34d399' : '#f87171';
+    }
 }
 
 function applyAiSignal() {
@@ -398,10 +428,9 @@ function updateBetCalculationUI() {
 }
 
 function confirmPlaceBet() {
-    // If blocked, stop bet and show custom/default block popup!
     if (isCurrentUserBlockedWithPopup()) return;
 
-    const curMob = localStorage.getItem('rp_logged_user') || OWNER_ADMIN_MOBILE;
+    const curMob = getActiveLoggedUser() || OWNER_ADMIN_MOBILE;
     const users = JSON.parse(localStorage.getItem('rp_users') || '{}');
 
     if (timeRemaining <= LOCK_SECONDS) {
@@ -553,7 +582,7 @@ function executeRoundSettlement(completedPeriod) {
     const outcome = getOutcomeDetails(winNum);
 
     if (!gameHistory.some(h => h.periodId === completedPeriod)) {
-        gameHistory.unshift({ periodId: completedPeriod, number: outcome.number, colors: outcome.colors, size: outcome.size });
+        gameHistory.unshift({ periodId: completedPeriod, number: outcome.number, colors: outcome.colors, colorLabel: outcome.colorLabel });
         if (gameHistory.length > 50) gameHistory.pop();
     }
 
@@ -591,7 +620,7 @@ function executeRoundSettlement(completedPeriod) {
         }
     });
 
-    const curMob = localStorage.getItem('rp_logged_user');
+    const curMob = getActiveLoggedUser();
     if (curMob) {
         const users = JSON.parse(localStorage.getItem('rp_users') || '{}');
         if (users[curMob]) {
@@ -625,12 +654,13 @@ function renderHistoryUI() {
     `).join('');
 
     document.getElementById('historyTableBody').innerHTML = gameHistory.slice(0, 20).map(r => {
+        const cLabel = r.colorLabel || getOutcomeDetails(r.number).colorLabel;
         const dots = r.colors.map(c => `<span class="color-dot" style="background:${c === 'GREEN' ? '#10b981' : (c === 'RED' ? '#ef4444' : '#8b5cf6')};"></span>`).join('');
         return `
             <tr>
                 <td>#${r.periodId}</td>
                 <td class="txt-center"><span class="mini-ball ${getBallStyle(r.number)}">${r.number}</span></td>
-                <td class="txt-center"><span class="size-pill ${r.size === 'BIG' ? 'size-big' : 'size-small'}">${r.size}</span></td>
+                <td class="txt-center"><span style="${getColorPillStyle(cLabel)}">${cLabel}</span></td>
                 <td class="txt-right">${dots}</td>
             </tr>
         `;
@@ -708,20 +738,20 @@ function showRoundResultToast(periodId, outcome, hadBets, staked, payout) {
 
     ball.className = `mini-ball mono toast-ball ${getBallStyle(outcome.number)}`;
     ball.textContent = outcome.number;
-    document.getElementById('toastPeriodText').textContent = `Period #${periodId} • ${outcome.size}`;
+    document.getElementById('toastPeriodText').textContent = `Period #${periodId} • ${outcome.colorLabel}`;
 
     if (!hadBets) {
         title.textContent = `Winning Number: ${outcome.number}`;
         title.style.color = '#fff';
-        sub.textContent = `Color: ${outcome.colors.join(' + ')}`;
+        sub.textContent = `Color: ${outcome.colorLabel}`;
     } else if (payout > 0) {
         title.textContent = `PROFIT WON +₹${payout.toFixed(2)}!`;
         title.style.color = '#34d399';
-        sub.textContent = `Winning Number: ${outcome.number}`;
+        sub.textContent = `Winning Number: ${outcome.number} (${outcome.colorLabel})`;
     } else {
         title.textContent = `Trade Loss (-₹${staked})`;
         title.style.color = '#f87171';
-        sub.textContent = `Winning Number: ${outcome.number}`;
+        sub.textContent = `Winning Number: ${outcome.number} (${outcome.colorLabel})`;
     }
 
     toast.classList.remove('hidden');

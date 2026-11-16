@@ -2,6 +2,12 @@ let generatedOtpCode = null;
 let generatedOtpMobile = null;
 let firebaseConfirmationResult = null;
 let otpTimerInterval = null;
+
+let forgotOtpCode = null;
+let forgotOtpMobile = null;
+let forgotFirebaseConfirm = null;
+let forgotTimerInterval = null;
+
 let deferredInstallPrompt = null;
 let currentlyInspectedUser = null;
 let currentWitFilterStatus = 'PENDING';
@@ -9,7 +15,8 @@ let currentWitFilterStatus = 'PENDING';
 let blockBtnPressTimer = null;
 let blockBtnLongPressTriggered = false;
 
-const REFER_BONUS_AMOUNT = 30;
+let activeReferBonusAmount = parseInt(localStorage.getItem('rp_refer_bonus_amt') || '30', 10);
+let colorCycleIndex = 0;
 
 if (localStorage.getItem('rp_dep_approval_on') === null) {
     localStorage.setItem('rp_dep_approval_on', '1');
@@ -22,6 +29,10 @@ window.addEventListener('beforeinstallprompt', (e) => {
     deferredInstallPrompt = e;
 });
 
+function getActiveLoggedUser() {
+    return localStorage.getItem('rp_logged_user') || sessionStorage.getItem('rp_session_user') || "";
+}
+
 function getActiveAdminPin() {
     return localStorage.getItem('rp_admin_pin') || "1234";
 }
@@ -29,6 +40,65 @@ function getActiveAdminPin() {
 function getNewUserDefaultBalance() {
     const val = parseFloat(localStorage.getItem('rp_default_new_bal'));
     return isNaN(val) ? 0.00 : val;
+}
+
+function fetchCloudValueWithTimeout(path, timeoutMs = 1800) {
+    return new Promise((resolve) => {
+        if (!cloudDb) return resolve(null);
+        let done = false;
+        const timer = setTimeout(() => {
+            if (!done) {
+                done = true;
+                resolve(null);
+            }
+        }, timeoutMs);
+
+        cloudDb.ref(path).once('value')
+            .then(snap => {
+                if (!done) {
+                    done = true;
+                    clearTimeout(timer);
+                    resolve(snap && snap.exists() ? snap.val() : null);
+                }
+            })
+            .catch(() => {
+                if (!done) {
+                    done = true;
+                    clearTimeout(timer);
+                    resolve(null);
+                }
+            });
+    });
+}
+
+/* ============================================================
+ * DYNAMIC REFER AMOUNT EXTRACTOR (UPDATES BADGE, BUTTON, MODAL & BONUS)
+ * ============================================================ */
+function syncReferAmountFromBannerText(bannerStr) {
+    if (!bannerStr) return;
+    document.getElementById('liveAdText').textContent = bannerStr;
+    localStorage.setItem('rp_custom_ad', bannerStr);
+
+    const rupeeMatch = bannerStr.match(/₹\s*(\d+)/);
+    const numMatch = rupeeMatch || bannerStr.match(/\b(\d+)\b/);
+
+    if (numMatch && numMatch[1]) {
+        const parsedAmt = parseInt(numMatch[1], 10);
+        if (!isNaN(parsedAmt) && parsedAmt > 0) {
+            activeReferBonusAmount = parsedAmt;
+            localStorage.setItem('rp_refer_bonus_amt', String(parsedAmt));
+        }
+    }
+
+    const leftBadge = document.getElementById('referLeftBadge');
+    const rightBtn = document.getElementById('referRightBtn');
+    const modalTitle = document.getElementById('referModalTitle');
+    const modalNote = document.getElementById('referModalNoteAmt');
+
+    if (leftBadge) leftBadge.textContent = `REFER ₹${activeReferBonusAmount}`;
+    if (rightBtn) rightBtn.textContent = `🎁 Refer ₹${activeReferBonusAmount}`;
+    if (modalTitle) modalTitle.textContent = `🎁 Refer & Earn ₹${activeReferBonusAmount} Bonus`;
+    if (modalNote) modalNote.textContent = `₹${activeReferBonusAmount} Instant Bonus`;
 }
 
 function setHomeSupportButtonVisible(visible) {
@@ -64,7 +134,7 @@ function updateHeaderUserDisplay(mob) {
     if (!headerEl) return;
     if (u && u.name) {
         headerEl.textContent = `👤 ${u.name} ▾`;
-    } else {
+    } else if (mob) {
         headerEl.textContent = `👤 +91 ${mob.slice(0,2)}***${mob.slice(-3)} ▾`;
     }
 }
@@ -84,10 +154,35 @@ function handleSecretAdminTap() {
 }
 
 /* ============================================================
- * REFER & EARN ₹30 BONUS SYSTEM
+ * REMEMBER ME DEFAULT CHECKED LOGIC & SAVED CREDENTIALS
+ * ============================================================ */
+function initRememberMeState() {
+    const cb = document.getElementById('rememberMeCheckbox');
+    if (cb) {
+        cb.checked = true;
+    }
+    const savedMob = localStorage.getItem('rp_remember_mob') || '';
+    const savedPass = localStorage.getItem('rp_remember_pass') || '';
+    const mobInput = document.getElementById('loginMobile');
+    const passInput = document.getElementById('loginPass');
+    if (mobInput && savedMob) mobInput.value = savedMob;
+    if (passInput && savedPass) passInput.value = savedPass;
+}
+
+function toggleRememberMePref() {
+    const cb = document.getElementById('rememberMeCheckbox');
+    if (!cb) return;
+    if (!cb.checked) {
+        localStorage.removeItem('rp_remember_mob');
+        localStorage.removeItem('rp_remember_pass');
+    }
+}
+
+/* ============================================================
+ * REFER & EARN DYNAMIC BONUS SYSTEM
  * ============================================================ */
 function getMyReferralLink() {
-    const mob = localStorage.getItem('rp_logged_user') || OWNER_ADMIN_MOBILE;
+    const mob = getActiveLoggedUser() || OWNER_ADMIN_MOBILE;
     const baseUrl = window.location.origin + window.location.pathname;
     return `${baseUrl}?ref=${mob}`;
 }
@@ -95,7 +190,7 @@ function getMyReferralLink() {
 function openReferModal() {
     playClickSound();
     setHomeSupportButtonVisible(false);
-    const mob = localStorage.getItem('rp_logged_user') || OWNER_ADMIN_MOBILE;
+    const mob = getActiveLoggedUser() || OWNER_ADMIN_MOBILE;
     const users = JSON.parse(localStorage.getItem('rp_users') || '{}');
     const u = users[mob] || {};
 
@@ -114,19 +209,19 @@ function openReferModal() {
 function closeReferModal() {
     const modal = document.getElementById('referModal');
     if (modal) modal.classList.add('hidden');
-    setHomeSupportButtonVisible(!!localStorage.getItem('rp_logged_user'));
+    setHomeSupportButtonVisible(!!getActiveLoggedUser());
 }
 
 function copyMyReferLink() {
     const link = getMyReferralLink();
     if (navigator.clipboard) navigator.clipboard.writeText(link);
     playWinSound();
-    showFeedbackBanner('🎁 Referral Link Copied! Share with friends to earn ₹30.');
+    showFeedbackBanner(`🎁 Referral Link Copied! Share with friends to earn ₹${activeReferBonusAmount}.`);
 }
 
 function shareReferOnWhatsApp() {
     const link = getMyReferralLink();
-    const msg = `🔥 *RubinaPro Official Trading App* 🔥\nRegister using my VIP link & play 20s WinGo!\n👉 ${link}`;
+    const msg = `🔥 *RubinaPro Official Trading App* 🔥\nRegister using my VIP link & get instant bonus! Play 20s WinGo!\n👉 ${link}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
@@ -243,7 +338,7 @@ function openWalletHistoryModal() {
 
 function closeWalletHistoryModal() {
     document.getElementById('walletHistoryModal').classList.add('hidden');
-    setHomeSupportButtonVisible(!!localStorage.getItem('rp_logged_user'));
+    setHomeSupportButtonVisible(!!getActiveLoggedUser());
 }
 
 function switchWalletHistoryMainTab(tab) {
@@ -273,7 +368,7 @@ function switchWalletHistoryMainTab(tab) {
 }
 
 function renderUserDepositHistoryList() {
-    const curMob = localStorage.getItem('rp_logged_user') || OWNER_ADMIN_MOBILE;
+    const curMob = getActiveLoggedUser() || OWNER_ADMIN_MOBILE;
     const allDep = JSON.parse(localStorage.getItem('rp_deposit_history') || '[]');
     const myDep = allDep.filter(d => String(d.user) === String(curMob));
 
@@ -334,7 +429,7 @@ function filterWithdrawHistoryByStatus(status) {
         }
     });
 
-    const curMob = localStorage.getItem('rp_logged_user') || OWNER_ADMIN_MOBILE;
+    const curMob = getActiveLoggedUser() || OWNER_ADMIN_MOBILE;
     const allWit = JSON.parse(localStorage.getItem('rp_withdraw_history') || '[]');
     const filtered = allWit.filter(w => String(w.user) === String(curMob) && (w.status || 'PENDING') === status);
 
@@ -371,7 +466,7 @@ function filterWithdrawHistoryByStatus(status) {
  * HEARTBEAT FOR LIVE ONLINE vs OFFLINE PLAYER TRACKING
  * ============================================================ */
 function sendUserHeartbeat() {
-    const mob = localStorage.getItem('rp_logged_user');
+    const mob = getActiveLoggedUser();
     if (!mob) return;
     const users = JSON.parse(localStorage.getItem('rp_users') || '{}');
     if (!users[mob]) return;
@@ -411,7 +506,7 @@ function renderAdminLiveMonitor() {
     const users = JSON.parse(localStorage.getItem('rp_users') || '{}');
     const keys = Object.keys(users);
     const now = Date.now();
-    const curLogged = localStorage.getItem('rp_logged_user');
+    const curLogged = getActiveLoggedUser();
 
     const onlineUsers = [];
     const offlineUsers = [];
@@ -566,7 +661,7 @@ function adminDeductUserBalance(mob) {
         localStorage.setItem('rp_users', JSON.stringify(users));
         if (cloudDb) cloudDb.ref(`rp_users/${mob}`).update(users[mob]);
     }
-    if (mob === localStorage.getItem('rp_logged_user')) {
+    if (mob === getActiveLoggedUser()) {
         walletBalance = Math.max(0, walletBalance - amt);
         saveWalletBalance();
     } else if (cloudDb) {
@@ -617,7 +712,7 @@ function openProfileModal() {
     playClickSound();
     setHomeSupportButtonVisible(false);
 
-    const mob = localStorage.getItem('rp_logged_user') || OWNER_ADMIN_MOBILE;
+    const mob = getActiveLoggedUser() || OWNER_ADMIN_MOBILE;
     const users = JSON.parse(localStorage.getItem('rp_users') || '{}');
     const userObj = users[mob] || { name: 'VIP Trader', totalDeposit: 0 };
 
@@ -637,7 +732,7 @@ function openProfileModal() {
 
 function closeProfileModal() {
     document.getElementById('profileModal').classList.add('hidden');
-    setHomeSupportButtonVisible(!!localStorage.getItem('rp_logged_user'));
+    setHomeSupportButtonVisible(!!getActiveLoggedUser());
 }
 
 function updateProfileName() {
@@ -649,7 +744,7 @@ function updateProfileName() {
         showFeedbackBanner('❌ कृपया सही नाम लिखें!', true);
         return;
     }
-    const mob = localStorage.getItem('rp_logged_user') || OWNER_ADMIN_MOBILE;
+    const mob = getActiveLoggedUser() || OWNER_ADMIN_MOBILE;
     const users = JSON.parse(localStorage.getItem('rp_users') || '{}');
     if (!users[mob]) users[mob] = { pass: '1234', totalDeposit: 0 };
     users[mob].name = newName;
@@ -671,7 +766,7 @@ function updateProfilePassword() {
         showFeedbackBanner('❌ नया पासवर्ड कम से कम 4 अक्षरों का होना चाहिए!', true);
         return;
     }
-    const mob = localStorage.getItem('rp_logged_user') || OWNER_ADMIN_MOBILE;
+    const mob = getActiveLoggedUser() || OWNER_ADMIN_MOBILE;
     const users = JSON.parse(localStorage.getItem('rp_users') || '{}');
     if (!users[mob]) users[mob] = { name: 'VIP Trader', totalDeposit: 0 };
     users[mob].pass = newPass;
@@ -707,7 +802,7 @@ function initFirebaseIfConfigured() {
 }
 
 function syncCurrentUserToCloud() {
-    const mob = localStorage.getItem('rp_logged_user');
+    const mob = getActiveLoggedUser();
     if (!mob) return;
     const users = JSON.parse(localStorage.getItem('rp_users') || '{}');
     if (!users[mob]) return;
@@ -718,6 +813,14 @@ function syncCurrentUserToCloud() {
     if (cloudDb) {
         cloudDb.ref(`rp_users/${mob}`).update(users[mob]);
     }
+}
+
+function getNumberColorLabel(num) {
+    const n = parseInt(num, 10);
+    if (n === 0) return 'RED + VIOLET (R+V)';
+    if (n === 5) return 'GREEN + VIOLET (G+V)';
+    if ([1, 3, 7, 9].includes(n)) return 'GREEN';
+    return 'RED';
 }
 
 function setupCloudListeners() {
@@ -734,17 +837,19 @@ function setupCloudListeners() {
         }
         const statusEl = document.getElementById('adminForceStatus');
         if (statusEl) {
-            statusEl.textContent = window.adminForcedNextNumber === null
-                ? 'Auto Random'
-                : `LOCKED RESULT: #${window.adminForcedNextNumber}`;
+            if (window.adminForcedNextNumber === null) {
+                statusEl.textContent = 'Auto Random';
+            } else {
+                const cLbl = getNumberColorLabel(window.adminForcedNextNumber);
+                statusEl.textContent = `LOCKED: #${window.adminForcedNextNumber} (${cLbl})`;
+            }
         }
         highlightAdminForceBtn(window.adminForcedNextNumber);
     });
 
     cloudDb.ref('rp_settings/adBanner').on('value', snap => {
         if (snap.exists() && snap.val()) {
-            document.getElementById('liveAdText').textContent = snap.val();
-            localStorage.setItem('rp_custom_ad', snap.val());
+            syncReferAmountFromBannerText(snap.val());
         }
     });
 
@@ -791,7 +896,7 @@ function setupCloudListeners() {
             const localUsers = JSON.parse(localStorage.getItem('rp_users') || '{}');
             const merged = { ...localUsers, ...cloudUsers };
             localStorage.setItem('rp_users', JSON.stringify(merged));
-            const curMob = localStorage.getItem('rp_logged_user');
+            const curMob = getActiveLoggedUser();
             if (curMob) updateHeaderUserDisplay(curMob);
             renderAdminUsersList();
             renderAdminLiveMonitor();
@@ -836,7 +941,7 @@ function setupCloudListeners() {
         renderAdminWithdrawList();
     });
 
-    const currentMob = localStorage.getItem('rp_logged_user');
+    const currentMob = getActiveLoggedUser();
     if (currentMob) {
         cloudDb.ref(`rp_user_credits/${currentMob}`).on('value', snap => {
             const creditAmt = parseFloat(snap.val() || '0');
@@ -873,7 +978,7 @@ function setupCloudListeners() {
 }
 
 /* ============================================================
- * AUTHENTICATION, CLOUD SMS OTP & AUTO ₹30 REFERRAL BONUS
+ * AUTHENTICATION, STRICT SINGLE REGISTRATION & FORGOT PASSWORD
  * ============================================================ */
 function initDefaultUsers() {
     const users = JSON.parse(localStorage.getItem('rp_users') || '{}');
@@ -886,6 +991,7 @@ function initDefaultUsers() {
 function switchAuthMode(mode) {
     const loginSec = document.getElementById('loginFormSection');
     const regSec = document.getElementById('registerFormSection');
+    const forgotSec = document.getElementById('forgotFormSection');
     const tabLogin = document.getElementById('tabLoginBtn');
     const tabReg = document.getElementById('tabRegBtn');
     const titleEl = document.getElementById('authHeaderTitle');
@@ -895,17 +1001,33 @@ function switchAuthMode(mode) {
     if (mode === 'login') {
         loginSec.classList.remove('hidden');
         regSec.classList.add('hidden');
+        if (forgotSec) forgotSec.classList.add('hidden');
         tabLogin.classList.add('active');
         tabReg.classList.remove('active');
         titleEl.textContent = 'RubinaPro Login';
         subEl.textContent = 'Login with your registered mobile & password';
-    } else {
+        initRememberMeState();
+    } else if (mode === 'register') {
         loginSec.classList.add('hidden');
         regSec.classList.remove('hidden');
+        if (forgotSec) forgotSec.classList.add('hidden');
         tabLogin.classList.remove('active');
         tabReg.classList.add('active');
         titleEl.textContent = 'Create RubinaPro Account';
         subEl.textContent = 'Verify mobile via SIM SMS OTP to register';
+    } else if (mode === 'forgot') {
+        loginSec.classList.add('hidden');
+        regSec.classList.add('hidden');
+        if (forgotSec) forgotSec.classList.remove('hidden');
+        tabLogin.classList.remove('active');
+        tabReg.classList.remove('active');
+        titleEl.textContent = 'Forgot Password Recovery';
+        subEl.textContent = 'Verify your registered mobile via OTP to reset password';
+        const loginMobVal = document.getElementById('loginMobile')?.value.trim();
+        const forgotMobEl = document.getElementById('forgotMobile');
+        if (loginMobVal && forgotMobEl && !forgotMobEl.value) {
+            forgotMobEl.value = loginMobVal;
+        }
     }
 }
 
@@ -922,6 +1044,7 @@ function closeAndroidSms() {
 }
 
 async function sendRealSimOtp() {
+    initDefaultUsers();
     const mob = document.getElementById('regMobile').value.trim();
     if (!/^[6-9]\d{9}$/.test(mob)) {
         playLossSound();
@@ -930,19 +1053,31 @@ async function sendRealSimOtp() {
         return;
     }
 
+    let users = JSON.parse(localStorage.getItem('rp_users') || '{}');
+    if (!users[mob] && cloudDb) {
+        const cloudUser = await fetchCloudValueWithTimeout(`rp_users/${mob}`, 1500);
+        if (cloudUser) {
+            users[mob] = cloudUser;
+            localStorage.setItem('rp_users', JSON.stringify(users));
+        }
+    }
+
+    if (users[mob]) {
+        playLossSound();
+        showFeedbackBanner('❌ यह नंबर पहले से रजिस्टर है! कृपया Login या Forgot Password करें।', true);
+        document.getElementById('loginMobile').value = mob;
+        switchAuthMode('login');
+        return;
+    }
+
     generatedOtpMobile = mob;
     const btn = document.getElementById('sendOtpBtn');
     btn.disabled = true;
-    btn.textContent = 'Sending...';
+    startOtpCooldown(btn);
 
-    // Pull SMS API Key from Cloud if not yet in localStorage
     if (cloudDb && !localStorage.getItem('rp_sms_api_key')) {
-        try {
-            const snap = await cloudDb.ref('rp_settings/smsApiKey').once('value');
-            if (snap.exists() && snap.val()) {
-                localStorage.setItem('rp_sms_api_key', snap.val());
-            }
-        } catch (e) {}
+        const cloudKey = await fetchCloudValueWithTimeout('rp_settings/smsApiKey', 1500);
+        if (cloudKey) localStorage.setItem('rp_sms_api_key', cloudKey);
     }
 
     const smsApiKey = (localStorage.getItem('rp_sms_api_key') || '').trim();
@@ -952,6 +1087,9 @@ async function sendRealSimOtp() {
     if (cloudDb) cloudDb.ref('rp_settings/lastOtpLog').set(logStr);
     updateAdminOtpLogUI();
 
+    const noteEl = document.getElementById('otpDispatchNote');
+    if (noteEl) noteEl.style.display = 'block';
+
     if (smsApiKey.length > 12) {
         try {
             const url = `https://www.fast2sms.com/dev/bulkV2?authorization=${encodeURIComponent(smsApiKey)}&route=otp&variables_values=${generatedOtpCode}&flash=0&numbers=${mob}`;
@@ -959,36 +1097,18 @@ async function sendRealSimOtp() {
             const data = await response.json();
             if (data && data.return === true) {
                 playWinSound();
-                document.getElementById('otpDispatchNote').style.display = 'block';
                 showFeedbackBanner(`✅ असली SMS OTP +91-${mob} के फोन पर भेज दिया गया है!`);
-                startOtpCooldown(btn);
                 return;
             }
         } catch (err) {}
     }
 
-    if (initFirebaseIfConfigured() && window.firebase && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-        try {
-            if (!window.recaptchaVerifier) {
-                window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', { size: 'invisible' });
-            }
-            const phoneNumber = `+91${mob}`;
-            firebaseConfirmationResult = await firebase.auth().signInWithPhoneNumber(phoneNumber, window.recaptchaVerifier);
-            playWinSound();
-            document.getElementById('otpDispatchNote').style.display = 'block';
-            showFeedbackBanner(`✅ +91-${mob} की सिम पर असली SMS भेज दिया गया है!`);
-            startOtpCooldown(btn);
-            return;
-        } catch (fbErr) {}
-    }
-
-    document.getElementById('otpDispatchNote').style.display = 'block';
-    setTimeout(() => triggerAndroidSmsNotification(mob, generatedOtpCode), 1000);
-    startOtpCooldown(btn);
+    setTimeout(() => triggerAndroidSmsNotification(mob, generatedOtpCode), 600);
 }
 
 function startOtpCooldown(btn) {
     let sec = 30;
+    btn.textContent = `Wait ${sec}s`;
     if (otpTimerInterval) clearInterval(otpTimerInterval);
     otpTimerInterval = setInterval(() => {
         sec--;
@@ -1001,9 +1121,137 @@ function startOtpCooldown(btn) {
     }, 1000);
 }
 
+/* ============================================================
+ * FORGOT PASSWORD OTP & RESET HANDLER
+ * ============================================================ */
+async function sendForgotSimOtp() {
+    initDefaultUsers();
+    const mob = document.getElementById('forgotMobile').value.trim();
+    if (!/^[6-9]\d{9}$/.test(mob)) {
+        playLossSound();
+        showFeedbackBanner('⚠️ कृपया 10 अंकों का सही रजिस्टर किया हुआ मोबाइल नंबर डालें!', true);
+        return;
+    }
+
+    let users = JSON.parse(localStorage.getItem('rp_users') || '{}');
+
+    if (!users[mob] && cloudDb) {
+        const cloudUser = await fetchCloudValueWithTimeout(`rp_users/${mob}`, 1800);
+        if (cloudUser) {
+            users[mob] = cloudUser;
+            localStorage.setItem('rp_users', JSON.stringify(users));
+        }
+    }
+
+    if (!users[mob]) {
+        playLossSound();
+        showFeedbackBanner('❌ यह मोबाइल नंबर रजिस्टर नहीं है! कृपया पहले नया अकाउंट बनाएं।', true);
+        return;
+    }
+
+    forgotOtpMobile = mob;
+    const btn = document.getElementById('sendForgotOtpBtn');
+    btn.disabled = true;
+    startForgotOtpCooldown(btn);
+
+    forgotOtpCode = String(Math.floor(100000 + Math.random() * 900000));
+    const logStr = `[FORGOT PASS] Mobile: +91-${mob} | OTP: ${forgotOtpCode} |\nTime: ${new Date().toLocaleTimeString()}`;
+    localStorage.setItem('rp_last_otp_log', logStr);
+    if (cloudDb) cloudDb.ref('rp_settings/lastOtpLog').set(logStr);
+    updateAdminOtpLogUI();
+
+    const noteEl = document.getElementById('forgotOtpNote');
+    if (noteEl) noteEl.style.display = 'block';
+
+    setTimeout(() => triggerAndroidSmsNotification(mob, forgotOtpCode), 500);
+    showFeedbackBanner(`✅ OTP Sent for +91-${mob}!`);
+
+    const smsApiKey = (localStorage.getItem('rp_sms_api_key') || '').trim();
+    if (smsApiKey.length > 12) {
+        try {
+            const url = `https://www.fast2sms.com/dev/bulkV2?authorization=${encodeURIComponent(smsApiKey)}&route=otp&variables_values=${forgotOtpCode}&flash=0&numbers=${mob}`;
+            fetch(url).catch(() => {});
+        } catch (err) {}
+    }
+}
+
+function startForgotOtpCooldown(btn) {
+    let sec = 30;
+    btn.textContent = `Wait ${sec}s`;
+    if (forgotTimerInterval) clearInterval(forgotTimerInterval);
+    forgotTimerInterval = setInterval(() => {
+        sec--;
+        btn.textContent = `Wait ${sec}s`;
+        if (sec <= 0) {
+            clearInterval(forgotTimerInterval);
+            btn.disabled = false;
+            btn.textContent = 'Resend OTP';
+        }
+    }, 1000);
+}
+
+async function handleForgotPasswordReset() {
+    initDefaultUsers();
+    const mob = document.getElementById('forgotMobile').value.trim();
+    const otp = document.getElementById('forgotOtp').value.trim();
+    const newPass = document.getElementById('forgotNewPass').value.trim();
+    const confirmPass = document.getElementById('forgotConfirmPass').value.trim();
+
+    if (!/^[6-9]\d{9}$/.test(mob) || newPass.length < 4 || newPass !== confirmPass) {
+        playLossSound();
+        showFeedbackBanner('❌ कृपया सही मोबाइल नंबर और कम से कम 4 अक्षरों का सेम पासवर्ड डालें!', true);
+        return;
+    }
+
+    if (!forgotOtpCode || mob !== forgotOtpMobile || otp !== forgotOtpCode) {
+        playLossSound();
+        showFeedbackBanner('❌ गलत OTP! कृपया सही 6-अंकों का OTP डालें।', true);
+        return;
+    }
+
+    const users = JSON.parse(localStorage.getItem('rp_users') || '{}');
+    if (!users[mob]) {
+        users[mob] = { name: 'VIP Trader', pass: newPass, balance: walletBalance, totalDeposit: 0 };
+    } else {
+        users[mob].pass = newPass;
+    }
+    users[mob].lastActive = Date.now();
+    localStorage.setItem('rp_users', JSON.stringify(users));
+
+    if (cloudDb) {
+        cloudDb.ref(`rp_users/${mob}/pass`).set(newPass);
+    }
+
+    localStorage.setItem('rp_remember_mob', mob);
+    localStorage.setItem('rp_remember_pass', newPass);
+    localStorage.setItem('rp_logged_user', mob);
+    sessionStorage.setItem('rp_session_user', mob);
+
+    if (users[mob].balance !== undefined) {
+        walletBalance = parseFloat(users[mob].balance);
+        saveWalletBalance();
+    }
+
+    updateHeaderUserDisplay(mob);
+    updateAdminVisibilityForUser(mob);
+    document.getElementById('authScreen').classList.add('hidden');
+    setHomeSupportButtonVisible(true);
+    setupCloudListeners();
+    closeAndroidSms();
+    playWinSound();
+    showFeedbackBanner('✅ पासवर्ड सफलतापूर्वक बदल गया और आपका अकाउंट लॉगिन हो गया!');
+}
+
+/* ============================================================
+ * LOGIN & STRICT SINGLE-TIME REGISTRATION
+ * ============================================================ */
 async function handleStrictLogin() {
+    initDefaultUsers();
     const mob = document.getElementById('loginMobile').value.trim();
     const pass = document.getElementById('loginPass').value.trim();
+    const rememberChecked = document.getElementById('rememberMeCheckbox')
+        ? document.getElementById('rememberMeCheckbox').checked
+        : true;
 
     if (!/^\d{10}$/.test(mob) || !pass) {
         playLossSound();
@@ -1013,14 +1261,12 @@ async function handleStrictLogin() {
 
     let users = JSON.parse(localStorage.getItem('rp_users') || '{}');
 
-    if (cloudDb) {
-        try {
-            const snap = await cloudDb.ref(`rp_users/${mob}`).once('value');
-            if (snap.exists() && snap.val()) {
-                users[mob] = snap.val();
-                localStorage.setItem('rp_users', JSON.stringify(users));
-            }
-        } catch (e) {}
+    if (!users[mob] && cloudDb) {
+        const cloudUser = await fetchCloudValueWithTimeout(`rp_users/${mob}`, 1800);
+        if (cloudUser) {
+            users[mob] = cloudUser;
+            localStorage.setItem('rp_users', JSON.stringify(users));
+        }
     }
 
     if (!users[mob]) {
@@ -1036,7 +1282,19 @@ async function handleStrictLogin() {
 
     users[mob].lastActive = Date.now();
     localStorage.setItem('rp_users', JSON.stringify(users));
-    localStorage.setItem('rp_logged_user', mob);
+
+    if (rememberChecked) {
+        localStorage.setItem('rp_logged_user', mob);
+        localStorage.setItem('rp_remember_mob', mob);
+        localStorage.setItem('rp_remember_pass', pass);
+        sessionStorage.setItem('rp_session_user', mob);
+    } else {
+        localStorage.removeItem('rp_logged_user');
+        localStorage.removeItem('rp_remember_mob');
+        localStorage.removeItem('rp_remember_pass');
+        sessionStorage.setItem('rp_session_user', mob);
+    }
+
     if (users[mob].balance !== undefined) {
         walletBalance = parseFloat(users[mob].balance);
         saveWalletBalance();
@@ -1053,6 +1311,7 @@ async function handleStrictLogin() {
 }
 
 async function handleStrictRegister() {
+    initDefaultUsers();
     const name = document.getElementById('regName').value.trim();
     const mob = document.getElementById('regMobile').value.trim();
     const otp = document.getElementById('regOtp').value.trim();
@@ -1063,6 +1322,23 @@ async function handleStrictRegister() {
     if (name.length < 2 || !/^[6-9]\d{9}$/.test(mob) || pass.length < 4 || pass !== confirmPass) {
         playLossSound();
         showFeedbackBanner('❌ कृपया सभी जानकारी और दोनों पासवर्ड सही से भरें!', true);
+        return;
+    }
+
+    let users = JSON.parse(localStorage.getItem('rp_users') || '{}');
+    if (!users[mob] && cloudDb) {
+        const cloudUser = await fetchCloudValueWithTimeout(`rp_users/${mob}`, 1500);
+        if (cloudUser) {
+            users[mob] = cloudUser;
+            localStorage.setItem('rp_users', JSON.stringify(users));
+        }
+    }
+
+    if (users[mob]) {
+        playLossSound();
+        showFeedbackBanner('❌ यह नंबर पहले से रजिस्टर है! कृपया Login या Forgot Password करें।', true);
+        document.getElementById('loginMobile').value = mob;
+        switchAuthMode('login');
         return;
     }
 
@@ -1081,18 +1357,16 @@ async function handleStrictRegister() {
     }
 
     walletBalance = getNewUserDefaultBalance();
-    const users = JSON.parse(localStorage.getItem('rp_users') || '{}');
     users[mob] = { name: name, pass: pass, balance: walletBalance, totalDeposit: 0, referEarned: 0, lastActive: Date.now() };
     localStorage.setItem('rp_users', JSON.stringify(users));
     if (cloudDb) {
-        try { await cloudDb.ref(`rp_users/${mob}`).set(users[mob]); } catch (e) {}
+        cloudDb.ref(`rp_users/${mob}`).set(users[mob]);
     }
 
-    // Automatically credit ₹30 Refer Bonus to the Referrer if valid 10-digit mobile invite code was used
     if (/^\d{10}$/.test(inviteCode) && inviteCode !== mob) {
         if (users[inviteCode]) {
-            users[inviteCode].balance = parseFloat(users[inviteCode].balance || 0) + REFER_BONUS_AMOUNT;
-            users[inviteCode].referEarned = parseFloat(users[inviteCode].referEarned || 0) + REFER_BONUS_AMOUNT;
+            users[inviteCode].balance = parseFloat(users[inviteCode].balance || 0) + activeReferBonusAmount;
+            users[inviteCode].referEarned = parseFloat(users[inviteCode].referEarned || 0) + activeReferBonusAmount;
             localStorage.setItem('rp_users', JSON.stringify(users));
             if (cloudDb) {
                 cloudDb.ref(`rp_users/${inviteCode}`).update({
@@ -1102,12 +1376,16 @@ async function handleStrictRegister() {
             }
         }
         if (cloudDb) {
-            cloudDb.ref(`rp_user_credits/${inviteCode}`).set(REFER_BONUS_AMOUNT);
+            cloudDb.ref(`rp_user_credits/${inviteCode}`).set(activeReferBonusAmount);
         }
         localStorage.removeItem('rp_incoming_ref');
     }
 
     localStorage.setItem('rp_logged_user', mob);
+    localStorage.setItem('rp_remember_mob', mob);
+    localStorage.setItem('rp_remember_pass', pass);
+    sessionStorage.setItem('rp_session_user', mob);
+
     saveWalletBalance();
     updateHeaderUserDisplay(mob);
     updateAdminVisibilityForUser(mob);
@@ -1121,7 +1399,8 @@ async function handleStrictRegister() {
 
 function checkExistingSession() {
     initDefaultUsers();
-    const savedMob = localStorage.getItem('rp_logged_user');
+    initRememberMeState();
+    const savedMob = getActiveLoggedUser();
     if (savedMob) {
         updateHeaderUserDisplay(savedMob);
         updateAdminVisibilityForUser(savedMob);
@@ -1134,7 +1413,7 @@ function checkExistingSession() {
 }
 
 function logoutAccount() {
-    const mob = localStorage.getItem('rp_logged_user');
+    const mob = getActiveLoggedUser();
     if (mob) {
         const users = JSON.parse(localStorage.getItem('rp_users') || '{}');
         if (users[mob]) {
@@ -1144,6 +1423,7 @@ function logoutAccount() {
         }
     }
     localStorage.removeItem('rp_logged_user');
+    sessionStorage.removeItem('rp_session_user');
     generatedOtpCode = null;
     closeAndroidSms();
     setHomeSupportButtonVisible(false);
@@ -1176,7 +1456,7 @@ function triggerAppInstall() {
 
 function closeInstallGuide() {
     document.getElementById('installGuideModal').classList.add('hidden');
-    setHomeSupportButtonVisible(!!localStorage.getItem('rp_logged_user'));
+    setHomeSupportButtonVisible(!!getActiveLoggedUser());
 }
 
 function openWithdrawModal() {
@@ -1190,7 +1470,7 @@ function openWithdrawModal() {
 
 function closeWithdrawModal() {
     document.getElementById('withdrawModal').classList.add('hidden');
-    setHomeSupportButtonVisible(!!localStorage.getItem('rp_logged_user'));
+    setHomeSupportButtonVisible(!!getActiveLoggedUser());
 }
 
 function submitWithdrawRequest() {
@@ -1203,7 +1483,7 @@ function submitWithdrawRequest() {
         showFeedbackBanner('Invalid amount or UPI ID! (Min ₹110)', true);
         return;
     }
-    const userMob = localStorage.getItem('rp_logged_user') || OWNER_ADMIN_MOBILE;
+    const userMob = getActiveLoggedUser() || OWNER_ADMIN_MOBILE;
     const reqId = Date.now();
     const initialStatus = witApprovalOn ? 'PENDING' : 'SUCCESS';
 
@@ -1337,7 +1617,7 @@ function openAdminModal() {
 
 function closeAdminModal() {
     document.getElementById('adminModal').classList.add('hidden');
-    setHomeSupportButtonVisible(!!localStorage.getItem('rp_logged_user'));
+    setHomeSupportButtonVisible(!!getActiveLoggedUser());
 }
 
 function grantAdminAccess(msg) {
@@ -1417,7 +1697,7 @@ function adminAddCreditToUser(mob) {
         localStorage.setItem('rp_users', JSON.stringify(users));
         if (cloudDb) cloudDb.ref(`rp_users/${mob}`).update(users[mob]);
     }
-    if (mob === localStorage.getItem('rp_logged_user')) {
+    if (mob === getActiveLoggedUser()) {
         walletBalance += amt;
         saveWalletBalance();
     } else if (cloudDb) {
@@ -1543,18 +1823,47 @@ function updateAdminOtpLogUI() {
     if (logEl) logEl.textContent = localStorage.getItem('rp_last_otp_log') || 'No OTP requested yet.';
 }
 
+/* ============================================================
+ * ADMIN RESULT LOCK: WORKS BY COLOR (GREEN/VIOLET/RED) OR NUMBER (0-9)
+ * ============================================================ */
 function highlightAdminForceBtn(selectedNum) {
     const gridBtns = document.querySelectorAll('.admin-num-grid .chip-item');
     gridBtns.forEach(btn => {
-        const txt = btn.textContent.trim();
-        if ((selectedNum === null || selectedNum === undefined) && txt === 'Auto') {
+        const fnum = btn.getAttribute('data-fnum') || btn.textContent.trim();
+        if ((selectedNum === null || selectedNum === undefined) && fnum === 'Auto') {
             btn.classList.add('selected-chip');
-        } else if (selectedNum !== null && selectedNum !== undefined && txt === String(selectedNum)) {
+        } else if (selectedNum !== null && selectedNum !== undefined && String(fnum) === String(selectedNum)) {
             btn.classList.add('selected-chip');
         } else {
             btn.classList.remove('selected-chip');
         }
     });
+
+    // Also highlight matching Color Force Button (GREEN / VIOLET / RED)
+    const colorBtns = document.querySelectorAll('.admin-color-force-btn');
+    colorBtns.forEach(cBtn => {
+        const col = cBtn.getAttribute('data-col');
+        let isMatch = false;
+        if (selectedNum !== null && selectedNum !== undefined) {
+            const n = parseInt(selectedNum, 10);
+            if (col === 'GREEN' && [1, 3, 5, 7, 9].includes(n)) isMatch = true;
+            if (col === 'RED' && [0, 2, 4, 6, 8].includes(n)) isMatch = true;
+            if (col === 'VIOLET' && [0, 5].includes(n)) isMatch = true;
+        }
+        cBtn.style.borderColor = isMatch ? '#fde047' : 'transparent';
+        cBtn.style.boxShadow = isMatch ? '0 0 12px rgba(253,224,71,0.65)' : 'none';
+    });
+}
+
+// When Admin clicks GREEN, VIOLET, or RED button -> Picks a matching number & locks it!
+function setAdminForcedColor(colorName) {
+    let pool = [1, 3, 7, 9];
+    if (colorName === 'RED') pool = [2, 4, 6, 8];
+    else if (colorName === 'VIOLET') pool = [0, 5];
+
+    const chosenNum = pool[colorCycleIndex % pool.length];
+    colorCycleIndex++;
+    setAdminForcedNumber(chosenNum);
 }
 
 function setAdminForcedNumber(num) {
@@ -1562,19 +1871,27 @@ function setAdminForcedNumber(num) {
         window.adminForcedNextNumber = null;
         localStorage.removeItem('rp_forced_next_num');
         if (cloudDb) cloudDb.ref('rp_live/forcedNumber').set(-1);
-        document.getElementById('adminForceStatus').textContent = 'Auto Random';
+        const stEl = document.getElementById('adminForceStatus');
+        if (stEl) stEl.textContent = 'Auto Random';
         highlightAdminForceBtn(null);
         playClickSound();
-        showFeedbackBanner('Admin Mode: Auto Random');
+        showFeedbackBanner('Present Round Mode: Auto Random');
     } else {
         const parsed = parseInt(num, 10);
+        const colLabel = getNumberColorLabel(parsed);
         window.adminForcedNextNumber = parsed;
         localStorage.setItem('rp_forced_next_num', String(parsed));
-        if (cloudDb) cloudDb.ref('rp_live/forcedNumber').set(parsed);
-        document.getElementById('adminForceStatus').textContent = `LOCKED RESULT: #${parsed}`;
+        if (cloudDb) {
+            cloudDb.ref('rp_live/forcedNumber').set(parsed);
+            if (currentPeriodId) {
+                cloudDb.ref(`rp_period_results/${currentPeriodId}`).set(parsed);
+            }
+        }
+        const stEl = document.getElementById('adminForceStatus');
+        if (stEl) stEl.textContent = `LOCKED: #${parsed} (${colLabel})`;
         highlightAdminForceBtn(parsed);
         playWinSound();
-        showFeedbackBanner(`🎯 Next Result 100% Locked to Number #${parsed}!`);
+        showFeedbackBanner(`🎯 Present Round Locked: Number #${parsed} • Color: ${colLabel}!`);
     }
 }
 
@@ -1636,7 +1953,7 @@ function approveUtr(id) {
         const rawPaid = parseFloat(req.amount);
         const creditAmt = parseFloat(req.creditWithBonus || req.amount);
         const targetUser = req.user || OWNER_ADMIN_MOBILE;
-        const currentMob = localStorage.getItem('rp_logged_user') || OWNER_ADMIN_MOBILE;
+        const currentMob = getActiveLoggedUser() || OWNER_ADMIN_MOBILE;
 
         updateDepositHistoryRecordStatus(id, 'SUCCESS');
 
@@ -1733,7 +2050,7 @@ function approveWithdrawReq(id) {
         const req = list[idx];
         const witAmt = parseFloat(req.amount);
         const targetUser = req.user || OWNER_ADMIN_MOBILE;
-        const currentMob = localStorage.getItem('rp_logged_user') || OWNER_ADMIN_MOBILE;
+        const currentMob = getActiveLoggedUser() || OWNER_ADMIN_MOBILE;
 
         updateWithdrawHistoryRecordStatus(id, 'SUCCESS');
 
@@ -1772,7 +2089,7 @@ function rejectWithdrawReq(id) {
         const req = list[idx];
         const refundAmt = parseFloat(req.amount || 0);
         const targetUser = req.user || OWNER_ADMIN_MOBILE;
-        const currentMob = localStorage.getItem('rp_logged_user') || OWNER_ADMIN_MOBILE;
+        const currentMob = getActiveLoggedUser() || OWNER_ADMIN_MOBILE;
 
         if (req.deductedOnSubmit && refundAmt > 0) {
             const users = JSON.parse(localStorage.getItem('rp_users') || '{}');
@@ -1817,11 +2134,10 @@ function adminUpdateBalance() {
 function adminUpdateAd() {
     const txt = document.getElementById('adminAdInput').value.trim();
     if (txt) {
-        document.getElementById('liveAdText').textContent = txt;
-        localStorage.setItem('rp_custom_ad', txt);
+        syncReferAmountFromBannerText(txt);
         if (cloudDb) cloudDb.ref('rp_settings/adBanner').set(txt);
-        playClickSound();
-        showFeedbackBanner('Promo Banner Updated!');
+        playWinSound();
+        showFeedbackBanner(`✅ Banner & Refer ₹${activeReferBonusAmount} Buttons Updated Everywhere!`);
     }
 }
 
@@ -1831,14 +2147,15 @@ window.onload = function () {
     saveWalletBalance();
     applySavedSupportLinks();
     const savedAd = localStorage.getItem('rp_custom_ad');
-    if (savedAd) document.getElementById('liveAdText').textContent = savedAd;
+    if (savedAd) {
+        syncReferAmountFromBannerText(savedAd);
+    }
 
     const pinInputEl = document.getElementById('adminPinInput');
     if (pinInputEl) {
         pinInputEl.addEventListener('input', checkAutoUnlockAdminPin);
     }
 
-    // Auto-detect incoming ?ref=MOBILE referral code from URL
     const urlParams = new URLSearchParams(window.location.search);
     const refCode = urlParams.get('ref');
     if (refCode && /^\d{10}$/.test(refCode.trim())) {

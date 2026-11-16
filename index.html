@@ -5,14 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#070b14">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="description" content="Download RubinaPro Official Trading App APK. Play 20s WinGo, Refer & Earn ₹30 Instant Bonus, 100% Fast UPI Withdrawal.">
+    <meta name="description" content="Download RubinaPro Official Trading App APK. Play 20s WinGo, Refer & Earn Instant Bonus, 100% Fast UPI Withdrawal.">
     <meta name="keywords" content="RubinaPro, RubinaPro App Download, RubinaPro APK, Color Trading App, All Yono App Bonus">
     <title>RubinaPro - Official Trading App</title>
     <link rel="icon" type="image/png" href="logo.png">
     <link rel="apple-touch-icon" href="logo.png">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="style.css">
-    <link rel="manifest" href="manifest.json">
     <!-- Google Firebase SDK for Real SIM OTP & Live Multi-Phone Sync -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
@@ -35,7 +34,7 @@
         <button onclick="closeAndroidSms()" style="background:none; border:none; color:#94a3b8; font-size:16px; cursor:pointer;">✕</button>
     </div>
 
-    <!-- 1. SEPARATE LOGIN & REGISTER SCREEN -->
+    <!-- 1. SEPARATE LOGIN, REGISTER & FORGOT PASSWORD SCREEN (ONLY ON LOGIN PAGE) -->
     <div id="authScreen" class="auth-screen">
         <div class="auth-card">
             <img src="logo.png" alt="RubinaPro" style="width:66px; height:66px; border-radius:16px; margin:0 auto 10px; display:block; object-fit:cover; box-shadow:0 8px 22px rgba(0,0,0,0.6);">
@@ -62,14 +61,15 @@
 
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; font-size:11px;">
                     <label style="color:#94a3b8; display:flex; align-items:center; gap:5px; cursor:pointer;">
-                        <input type="checkbox" checked> Remember Me
+                        <input id="rememberMeCheckbox" type="checkbox" checked onchange="toggleRememberMePref()"> Remember Me
                     </label>
-                    <span onclick="switchAuthMode('register')" style="color:#818cf8; font-weight:700; cursor:pointer;">Create New Account?</span>
+                    <span onclick="switchAuthMode('forgot')" style="color:#fbbf24; font-weight:800; cursor:pointer;">Forgot Password?</span>
                 </div>
 
                 <button type="button" class="btn-primary" onclick="handleStrictLogin()">SECURE LOGIN ➔</button>
-                <div style="text-align:center; margin-top:10px;">
-                    <span onclick="openSupportModal()" style="font-size:11px; color:#38bdf8; cursor:pointer; font-weight:700;">🎧 Need Help? Contact 24x7 Customer Support</span>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; font-size:11px;">
+                    <span onclick="switchAuthMode('register')" style="color:#818cf8; font-weight:700; cursor:pointer;">Create New Account?</span>
+                    <span onclick="openSupportModal()" style="color:#38bdf8; cursor:pointer; font-weight:700;">🎧 24x7 Support</span>
                 </div>
                 <p class="auth-hint">256-Bit Encrypted Official Trading Server</p>
             </div>
@@ -118,10 +118,48 @@
                     ✅ VERIFY SMS OTP & REGISTER
                 </button>
             </div>
+
+            <!-- ================= FORM C: FORGOT PASSWORD FORM (ONLY ON LOGIN SCREEN) ================= -->
+            <div id="forgotFormSection" class="hidden">
+                <div class="input-group">
+                    <label>Registered Mobile Number (+91)</label>
+                    <input id="forgotMobile" type="tel" maxlength="10" class="input-field mono" placeholder="Enter registered 10-digit mobile">
+                </div>
+
+                <div class="input-group">
+                    <label>SIM SMS OTP Verification</label>
+                    <div class="otp-row">
+                        <input id="forgotOtp" type="tel" maxlength="6" class="input-field mono" placeholder="Enter 6-Digit OTP">
+                        <button id="sendForgotOtpBtn" type="button" class="btn-otp" onclick="sendForgotSimOtp()">Send OTP</button>
+                    </div>
+                    <small id="forgotOtpNote" style="font-size:10px; color:#34d399; display:none; margin-top:4px;">
+                        ✓ Password Reset OTP sent to your mobile number.
+                    </small>
+                </div>
+
+                <div class="input-group">
+                    <label>New Password</label>
+                    <input id="forgotNewPass" type="password" class="input-field" placeholder="Enter new password (min 4 chars)">
+                </div>
+
+                <div class="input-group">
+                    <label>Confirm New Password</label>
+                    <input id="forgotConfirmPass" type="password" class="input-field" placeholder="Re-enter new password">
+                </div>
+
+                <button type="button" class="btn-primary" style="background:linear-gradient(90deg, #f59e0b, #d97706); color:#000;" onclick="handleForgotPasswordReset()">
+                    🔐 RESET PASSWORD & LOGIN
+                </button>
+
+                <div style="text-align:center; margin-top:12px;">
+                    <span onclick="switchAuthMode('login')" style="font-size:12px; color:#38bdf8; cursor:pointer; font-weight:800;">⬅ Back to Login</span>
+                </div>
+            </div>
+
         </div>
     </div>
 
-    <!-- 2. TOP HEADER (EXACT ORIGINAL COMPACT "📲 App" BUTTON SIZE AS IN SCREENSHOT 1) -->
+    <!-- 2. TOP HEADER (ORIGINAL COMPACT "📲 App" BUTTON SIZE) -->
     <header class="app-header">
         <div class="header-inner">
             <div class="brand-box" onclick="openProfileModal()" style="cursor:pointer;" title="Tap to open Profile & Settings">
@@ -147,27 +185,27 @@
         </div>
     </header>
 
-    <!-- 3. REFER & EARN ₹30 BONUS BANNER -->
+    <!-- 3. REFER & EARN BANNER (ALL 3 PLACES SYNC AUTOMATICALLY) -->
     <div class="ad-banner-wrap">
         <div class="ad-banner" style="border:1px solid #10b981; background:linear-gradient(90deg, rgba(16,185,129,0.18), rgba(6,95,70,0.35));">
             <div>
-                <span class="ad-tag" style="background:#fde047; color:#000; font-weight:900;">REFER ₹30</span>
+                <span id="referLeftBadge" class="ad-tag" style="background:#fde047; color:#000; font-weight:900;">REFER ₹30</span>
                 <span id="liveAdText" class="ad-text">🎁 Refer & Earn ₹30! Invite friends & get ₹30 Instant Bonus on every signup!</span>
             </div>
-            <button class="btn-share-viral" onclick="openReferModal()" style="background:linear-gradient(90deg,#10b981,#059669); color:#000; font-weight:900; border:none;">
+            <button id="referRightBtn" class="btn-share-viral" onclick="openReferModal()" style="background:linear-gradient(90deg,#10b981,#059669); color:#000; font-weight:900; border:none;">
                 🎁 Refer ₹30
             </button>
         </div>
     </div>
 
-    <!-- REFER & EARN ₹30 POPUP MODAL -->
+    <!-- REFER & EARN POPUP MODAL -->
     <div id="referModal" class="modal-backdrop hidden">
         <div class="modal-box">
             <div class="modal-hdr">
-                <h3 class="green-txt">🎁 Refer & Earn ₹30 Bonus</h3>
+                <h3 id="referModalTitle" class="green-txt">🎁 Refer & Earn ₹30 Bonus</h3>
                 <button class="close-btn" onclick="closeReferModal()">✕</button>
             </div>
-            <p class="modal-note">Apna Referral Link doston ko WhatsApp/Telegram par bhejein. Jaise hi aapka dost is link se Register karega, aapko turant <b>₹30 Instant Bonus</b> milega!</p>
+            <p class="modal-note">Apna Referral Link doston ko WhatsApp/Telegram par bhejein. Jaise hi aapka dost is link se Register karega, aapko turant <b id="referModalNoteAmt">₹30 Instant Bonus</b> milega!</p>
 
             <div class="admin-sec" style="text-align:center;">
                 <div style="font-size:11px; color:#94a3b8;">YOUR OFFICIAL REFERRAL CODE</div>
@@ -270,12 +308,13 @@
                     <button id="btn-NUMBER-9" class="num-btn num-green-bg bet-target-btn mono" onclick="selectTarget('NUMBER', '9', 'Number 9', 9)">9<small>Green</small></button>
                 </div>
 
-                <!-- Contract Money & Multiplier -->
+                <!-- Contract Money & Multiplier (WITH ₹50 CHIP) -->
                 <div class="bet-config-box">
                     <div class="config-row">
                         <span class="cfg-lbl">CONTRACT AMOUNT</span>
                         <div class="chip-group">
                             <button class="chip-item selected-chip mono" data-val="10" onclick="setBaseAmount(10)">₹10</button>
+                            <button class="chip-item mono" data-val="50" onclick="setBaseAmount(50)">₹50</button>
                             <button class="chip-item mono" data-val="100" onclick="setBaseAmount(100)">₹100</button>
                             <button class="chip-item mono" data-val="500" onclick="setBaseAmount(500)">₹500</button>
                             <button class="chip-item mono" data-val="1000" onclick="setBaseAmount(1000)">₹1000</button>
@@ -331,10 +370,10 @@
                         </div>
                     </div>
                     <div class="ai-stat-box">
-                        <span class="stat-lbl">Hot Number / Size</span>
+                        <span class="stat-lbl">Hot Number / Color</span>
                         <div class="stat-val">
                             <span id="aiHotNumber" class="mono amber-txt">#7</span>
-                            <span id="aiPredSize" class="indigo-txt">BIG</span>
+                            <span id="aiPredSize" class="green-txt">GREEN</span>
                         </div>
                     </div>
                 </div>
@@ -359,7 +398,7 @@
                             <tr>
                                 <th>Period</th>
                                 <th class="txt-center">Number</th>
-                                <th class="txt-center">Size</th>
+                                <th class="txt-center">Color</th>
                                 <th class="txt-right">Result</th>
                             </tr>
                         </thead>
@@ -390,7 +429,7 @@
         </div>
     </main>
 
-    <!-- RIGHT-SIDE BOTTOM CUSTOMER SUPPORT BUTTON (AUTO-HIDES WHEN MODALS OPEN) -->
+    <!-- RIGHT-SIDE BOTTOM CUSTOMER SUPPORT BUTTON -->
     <button id="homeSupportFloatBtn" type="button" onclick="openSupportModal()"
         style="position:fixed; bottom:74px; right:14px; z-index:900; background:linear-gradient(135deg,#0284c7,#10b981); color:#fff; border:1px solid #38bdf8; border-radius:50px; padding:9px 14px; font-weight:800; font-size:12px; box-shadow:0 8px 25px rgba(0,0,0,0.7); cursor:pointer; display:flex; align-items:center; gap:6px;">
         <span>🎧</span><span>Support</span>
@@ -426,7 +465,7 @@
         </div>
     </div>
 
-    <!-- WALLET DEPOSIT & WITHDRAWAL HISTORY MODAL (OPENS ON BOTTOM "HISTORY" BUTTON) -->
+    <!-- WALLET DEPOSIT & WITHDRAWAL HISTORY MODAL -->
     <div id="walletHistoryModal" class="modal-backdrop hidden">
         <div class="modal-box" style="max-height:88vh; overflow-y:auto;">
             <div class="modal-hdr">
@@ -445,7 +484,6 @@
                 </button>
             </div>
 
-            <!-- SECTION 1: DEPOSIT HISTORY -->
             <div id="whDepositSection" style="display:block;">
                 <div style="display:flex; justify-content:space-between; align-items:center; background:#111827; padding:8px 12px; border-radius:8px; margin-bottom:10px; border:1px solid #1e293b;">
                     <span style="font-size:11px; color:#94a3b8;">Total Deposited Amount:</span>
@@ -456,7 +494,6 @@
                 </div>
             </div>
 
-            <!-- SECTION 2: WITHDRAWAL HISTORY (4 STATUS TABS) -->
             <div id="whWithdrawSection" style="display:none;">
                 <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:5px; margin-bottom:12px; background:#1a103c; padding:6px; border-radius:12px;">
                     <button id="witSubTab-PENDING" type="button" onclick="filterWithdrawHistoryByStatus('PENDING')"
@@ -494,7 +531,6 @@
                 <button class="close-btn" onclick="closeProfileModal()">✕</button>
             </div>
 
-            <!-- User Details Card -->
             <div class="admin-sec" style="display:flex; align-items:center; gap:12px;">
                 <img src="logo.png" alt="RP" onclick="handleSecretAdminTap()" style="width:48px; height:48px; border-radius:12px; object-fit:cover; flex-shrink:0; cursor:pointer;">
                 <div style="flex-grow:1;">
@@ -508,7 +544,6 @@
                 </div>
             </div>
 
-            <!-- Quick Wallet Actions (Deposit & Withdrawal) -->
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px;">
                 <button onclick="closeProfileModal(); openDepositModal();" style="background:linear-gradient(90deg,#10b981,#059669); color:#000; border:none; padding:11px; border-radius:10px; font-weight:800; font-size:12px; cursor:pointer;">
                     💳 Deposit Cash
@@ -518,7 +553,6 @@
                 </button>
             </div>
 
-            <!-- Account Settings & Edit Name / Password -->
             <div class="admin-sec">
                 <label class="amber-txt">⚙️ ACCOUNT SETTINGS</label>
                 <div class="admin-row" style="margin-bottom:8px;">
@@ -531,7 +565,6 @@
                 </div>
             </div>
 
-            <!-- App Sound, 24x7 Customer Support & Download Controls -->
             <div class="admin-sec" style="display:flex; flex-direction:column; gap:8px;">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <span style="font-size:12px; color:#cbd5e1; font-weight:700;">🔊 Game Sound Effects</span>
@@ -635,7 +668,7 @@
         </div>
     </div>
 
-    <!-- 7. MASTER ADMIN PANEL -->
+    <!-- 7. MASTER ADMIN PANEL (WITH COLOR + NUMBER RESULT LOCK IN BOTH TAB A & TAB B) -->
     <div id="adminModal" class="modal-backdrop hidden">
         <div class="modal-box" style="max-height:90vh; overflow-y:auto;">
             <div class="modal-hdr">
@@ -677,20 +710,38 @@
                 <!-- ================= SCREEN A ================= -->
                 <div id="adminSectionA" style="display:block;">
                     <div class="admin-sec">
-                        <label class="green-txt">🎯 FORCE NEXT PERIOD RESULT (0-9)</label>
-                        <p class="admin-sub">Mode: <strong id="adminForceStatus" class="amber-txt">Auto Random</strong></p>
+                        <label class="green-txt">🎯 FORCE PRESENT (CURRENT) ROUND RESULT (COLOR OR 0-9)</label>
+                        <p class="admin-sub">Present Round Mode: <strong id="adminForceStatus" class="amber-txt">Auto Random</strong></p>
+
+                        <!-- NEW: Force by Color (GREEN / VIOLET / RED) -->
+                        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-bottom:8px;">
+                            <button type="button" class="admin-color-force-btn" data-col="GREEN" onclick="setAdminForcedColor('GREEN')"
+                                style="background:linear-gradient(135deg,#059669,#10b981); color:#000; border:2px solid transparent; padding:8px 4px; border-radius:8px; font-weight:900; font-size:11px; cursor:pointer;">
+                                🟢 GREEN<br><small style="font-size:9px; opacity:0.85;">(1,3,7,9)</small>
+                            </button>
+                            <button type="button" class="admin-color-force-btn" data-col="VIOLET" onclick="setAdminForcedColor('VIOLET')"
+                                style="background:linear-gradient(135deg,#6d28d9,#8b5cf6); color:#fff; border:2px solid transparent; padding:8px 4px; border-radius:8px; font-weight:900; font-size:11px; cursor:pointer;">
+                                🟣 VIOLET<br><small style="font-size:9px; opacity:0.85;">(0, 5)</small>
+                            </button>
+                            <button type="button" class="admin-color-force-btn" data-col="RED" onclick="setAdminForcedColor('RED')"
+                                style="background:linear-gradient(135deg,#dc2626,#ef4444); color:#fff; border:2px solid transparent; padding:8px 4px; border-radius:8px; font-weight:900; font-size:11px; cursor:pointer;">
+                                🔴 RED<br><small style="font-size:9px; opacity:0.85;">(2,4,6,8)</small>
+                            </button>
+                        </div>
+
+                        <!-- Colored Number Buttons (0-9) that work as exact numbers AND show their color -->
                         <div class="admin-num-grid">
-                            <button onclick="setAdminForcedNumber(null)" class="chip-item">Auto</button>
-                            <button onclick="setAdminForcedNumber(0)" class="chip-item mono">0</button>
-                            <button onclick="setAdminForcedNumber(1)" class="chip-item mono">1</button>
-                            <button onclick="setAdminForcedNumber(2)" class="chip-item mono">2</button>
-                            <button onclick="setAdminForcedNumber(3)" class="chip-item mono">3</button>
-                            <button onclick="setAdminForcedNumber(4)" class="chip-item mono">4</button>
-                            <button onclick="setAdminForcedNumber(5)" class="chip-item mono">5</button>
-                            <button onclick="setAdminForcedNumber(6)" class="chip-item mono">6</button>
-                            <button onclick="setAdminForcedNumber(7)" class="chip-item mono">7</button>
-                            <button onclick="setAdminForcedNumber(8)" class="chip-item mono">8</button>
-                            <button onclick="setAdminForcedNumber(9)" class="chip-item mono">9</button>
+                            <button onclick="setAdminForcedNumber(null)" class="chip-item" data-fnum="Auto">Auto</button>
+                            <button onclick="setAdminForcedNumber(0)" class="chip-item mono" data-fnum="0" style="border-color:#8b5cf6; color:#f87171;">0 <small style="font-size:8px; color:#c084fc;">R+V</small></button>
+                            <button onclick="setAdminForcedNumber(1)" class="chip-item mono" data-fnum="1" style="border-color:#10b981; color:#34d399;">1 <small style="font-size:8px;">G</small></button>
+                            <button onclick="setAdminForcedNumber(2)" class="chip-item mono" data-fnum="2" style="border-color:#ef4444; color:#f87171;">2 <small style="font-size:8px;">R</small></button>
+                            <button onclick="setAdminForcedNumber(3)" class="chip-item mono" data-fnum="3" style="border-color:#10b981; color:#34d399;">3 <small style="font-size:8px;">G</small></button>
+                            <button onclick="setAdminForcedNumber(4)" class="chip-item mono" data-fnum="4" style="border-color:#ef4444; color:#f87171;">4 <small style="font-size:8px;">R</small></button>
+                            <button onclick="setAdminForcedNumber(5)" class="chip-item mono" data-fnum="5" style="border-color:#8b5cf6; color:#34d399;">5 <small style="font-size:8px; color:#c084fc;">G+V</small></button>
+                            <button onclick="setAdminForcedNumber(6)" class="chip-item mono" data-fnum="6" style="border-color:#ef4444; color:#f87171;">6 <small style="font-size:8px;">R</small></button>
+                            <button onclick="setAdminForcedNumber(7)" class="chip-item mono" data-fnum="7" style="border-color:#10b981; color:#34d399;">7 <small style="font-size:8px;">G</small></button>
+                            <button onclick="setAdminForcedNumber(8)" class="chip-item mono" data-fnum="8" style="border-color:#ef4444; color:#f87171;">8 <small style="font-size:8px;">R</small></button>
+                            <button onclick="setAdminForcedNumber(9)" class="chip-item mono" data-fnum="9" style="border-color:#10b981; color:#34d399;">9 <small style="font-size:8px;">G</small></button>
                         </div>
                     </div>
 
@@ -721,7 +772,7 @@
                             <button class="btn-adm-act" onclick="adminUpdateNewUserDefaultBal()">Save Default</button>
                         </div>
                         <div class="admin-row" style="margin-top:8px;">
-                            <input id="adminAdInput" type="text" class="input-field" placeholder="New Promo Banner Text">
+                            <input id="adminAdInput" type="text" class="input-field" placeholder="New Promo / Refer Banner Text">
                             <button class="btn-adm-act" onclick="adminUpdateAd()">Save Banner</button>
                         </div>
                     </div>
@@ -802,8 +853,40 @@
                         <div id="adminInspectorContent" style="font-size:11px; line-height:1.5;"></div>
                     </div>
 
+                    <!-- QUICK PRESENT ROUND COLOR + NUMBER LOCK IN TAB B AS WELL -->
                     <div class="admin-sec">
-                        <label class="amber-txt">🎟️ CURRENT ROUND LIVE BETS (<span id="adminLiveBetsCount">0</span>)</label>
+                        <label class="green-txt">🎯 LOCK PRESENT ROUND RESULT WHILE WATCHING BETS</label>
+                        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin:6px 0 8px;">
+                            <button type="button" class="admin-color-force-btn" data-col="GREEN" onclick="setAdminForcedColor('GREEN')"
+                                style="background:linear-gradient(135deg,#059669,#10b981); color:#000; border:2px solid transparent; padding:7px 4px; border-radius:8px; font-weight:900; font-size:11px; cursor:pointer;">
+                                🟢 GREEN (1,3,7,9)
+                            </button>
+                            <button type="button" class="admin-color-force-btn" data-col="VIOLET" onclick="setAdminForcedColor('VIOLET')"
+                                style="background:linear-gradient(135deg,#6d28d9,#8b5cf6); color:#fff; border:2px solid transparent; padding:7px 4px; border-radius:8px; font-weight:900; font-size:11px; cursor:pointer;">
+                                🟣 VIOLET (0,5)
+                            </button>
+                            <button type="button" class="admin-color-force-btn" data-col="RED" onclick="setAdminForcedColor('RED')"
+                                style="background:linear-gradient(135deg,#dc2626,#ef4444); color:#fff; border:2px solid transparent; padding:7px 4px; border-radius:8px; font-weight:900; font-size:11px; cursor:pointer;">
+                                🔴 RED (2,4,6,8)
+                            </button>
+                        </div>
+                        <div class="admin-num-grid">
+                            <button onclick="setAdminForcedNumber(null)" class="chip-item" data-fnum="Auto">Auto</button>
+                            <button onclick="setAdminForcedNumber(0)" class="chip-item mono" data-fnum="0" style="border-color:#8b5cf6; color:#f87171;">0 <small style="font-size:8px; color:#c084fc;">R+V</small></button>
+                            <button onclick="setAdminForcedNumber(1)" class="chip-item mono" data-fnum="1" style="border-color:#10b981; color:#34d399;">1 <small style="font-size:8px;">G</small></button>
+                            <button onclick="setAdminForcedNumber(2)" class="chip-item mono" data-fnum="2" style="border-color:#ef4444; color:#f87171;">2 <small style="font-size:8px;">R</small></button>
+                            <button onclick="setAdminForcedNumber(3)" class="chip-item mono" data-fnum="3" style="border-color:#10b981; color:#34d399;">3 <small style="font-size:8px;">G</small></button>
+                            <button onclick="setAdminForcedNumber(4)" class="chip-item mono" data-fnum="4" style="border-color:#ef4444; color:#f87171;">4 <small style="font-size:8px;">R</small></button>
+                            <button onclick="setAdminForcedNumber(5)" class="chip-item mono" data-fnum="5" style="border-color:#8b5cf6; color:#34d399;">5 <small style="font-size:8px; color:#c084fc;">G+V</small></button>
+                            <button onclick="setAdminForcedNumber(6)" class="chip-item mono" data-fnum="6" style="border-color:#ef4444; color:#f87171;">6 <small style="font-size:8px;">R</small></button>
+                            <button onclick="setAdminForcedNumber(7)" class="chip-item mono" data-fnum="7" style="border-color:#10b981; color:#34d399;">7 <small style="font-size:8px;">G</small></button>
+                            <button onclick="setAdminForcedNumber(8)" class="chip-item mono" data-fnum="8" style="border-color:#ef4444; color:#f87171;">8 <small style="font-size:8px;">R</small></button>
+                            <button onclick="setAdminForcedNumber(9)" class="chip-item mono" data-fnum="9" style="border-color:#10b981; color:#34d399;">9 <small style="font-size:8px;">G</small></button>
+                        </div>
+                    </div>
+
+                    <div class="admin-sec">
+                        <label class="amber-txt">🎟️ PRESENT ROUND LIVE BETS (<span id="adminLiveBetsCount">0</span>)</label>
                         <div id="adminLiveBetsList" class="admin-utr-list" style="max-height:130px; overflow-y:auto; font-size:11px;">
                             No active bets placed in this round yet.
                         </div>
@@ -867,7 +950,7 @@
         </div>
     </div>
 
-    <!-- 9. BOTTOM NAVIGATION BAR: 5 ITEMS FOR PLAYERS, 6 ITEMS FOR OWNER (9351433914) -->
+    <!-- 9. BOTTOM NAVIGATION BAR -->
     <nav class="bottom-nav">
         <button class="nav-item active-nav" onclick="window.scrollTo(0,0)">
             <span>🎮</span><span>Trade</span>
@@ -907,14 +990,5 @@
 
     <script src="script.js"></script>
     <script src="admin.js"></script>
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js')
-        .then(reg => console.log('Service Worker Registered!', reg))
-        .catch(err => console.log('Service Worker Failed!', err));
-    });
-  }
-</script>
 </body>
 </html>
